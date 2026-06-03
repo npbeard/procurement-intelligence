@@ -35,25 +35,32 @@ def download_package(year: int, pkg_num: int, output_root: str = BRONZE_PATH) ->
         return False
 
     url = f"{TED_BASE_URL}/{year}{pkg_num:05d}"
-    r = requests.get(url, stream=True, timeout=60)
+    r = requests.get(url, timeout=120)
 
     if r.status_code == 404:
         print(f"[miss] {year}{pkg_num:05d} — not published")
         return False
 
     r.raise_for_status()
+
+    if len(r.content) == 0:
+        print(f"[warn] {year}{pkg_num:05d} — empty response, skipping")
+        return False
+
     dest_dir.mkdir(parents=True, exist_ok=True)
-
     tar_path = dest_dir / "_package.tar.gz"
-    with open(tar_path, "wb") as f:
-        for chunk in r.iter_content(chunk_size=8192):
-            f.write(chunk)
+    tar_path.write_bytes(r.content)
 
-    with tarfile.open(tar_path, "r:gz") as tf:
-        xml_members = [m for m in tf.getmembers() if m.name.endswith(".xml")]
-        for member in xml_members:
-            member.name = Path(member.name).name  # flatten directory structure
-            tf.extract(member, dest_dir, filter="data")
+    try:
+        with tarfile.open(tar_path, "r:gz") as tf:
+            xml_members = [m for m in tf.getmembers() if m.name.endswith(".xml")]
+            for member in xml_members:
+                member.name = Path(member.name).name
+                tf.extract(member, dest_dir, filter="data")
+    except (tarfile.ReadError, tarfile.TarError) as e:
+        print(f"[warn] {year}{pkg_num:05d} — tar error ({e}), skipping")
+        tar_path.unlink(missing_ok=True)
+        return False
 
     tar_path.unlink()
     print(f"[ok]   {year}{pkg_num:05d} — {len(xml_members)} notices → {dest_dir}")
