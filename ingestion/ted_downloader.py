@@ -1,14 +1,14 @@
 """
 Download TED daily packages into the Bronze layer.
 
-Each package is a ZIP of eForms XML notices published that day.
+Each package is a tar.gz of eForms XML notices published that day.
 XMLs are extracted and stored as-is — no parsing happens here.
 
 Bronze layout:
     <BRONZE_PATH>/year=<year>/pkg=<nnnnn>/<notice>.xml
 
 Usage:
-    python -m ingestion.ted_downloader --year 2026 --start 1 --end 50
+    python -m ingestion.ted_downloader --year 2026 --start 1 --end 100
 """
 
 import os
@@ -23,6 +23,9 @@ load_dotenv()
 TED_BASE_URL = "https://ted.europa.eu/packages/daily"
 BRONZE_PATH = os.getenv("BRONZE_PATH", "data/bronze/ted")
 
+_SESSION = requests.Session()
+_SESSION.headers.update({"User-Agent": "TED-Procurement-Research/1.0 (academic)"})
+
 
 def _pkg_dir(output_root: str, year: int, pkg_num: int) -> Path:
     return Path(output_root) / f"year={year}" / f"pkg={pkg_num:05d}"
@@ -36,16 +39,25 @@ def download_package(year: int, pkg_num: int, output_root: str = BRONZE_PATH) ->
         return False
 
     url = f"{TED_BASE_URL}/{year}{pkg_num:05d}"
-    r = requests.get(url, timeout=120)
 
-    if r.status_code == 404:
-        print(f"[miss] {year}{pkg_num:05d} — not published")
-        return False
+    # Retry up to 3 times with increasing backoff on empty responses (rate limiting)
+    for attempt in range(3):
+        r = _SESSION.get(url, timeout=120)
 
-    r.raise_for_status()
+        if r.status_code == 404:
+            print(f"[miss] {year}{pkg_num:05d} — not published")
+            return False
 
-    if len(r.content) == 0:
-        print(f"[warn] {year}{pkg_num:05d} — empty response, skipping")
+        r.raise_for_status()
+
+        if len(r.content) > 0:
+            break
+
+        wait = 60 * (attempt + 1)
+        print(f"[wait] {year}{pkg_num:05d} — rate limited, retrying in {wait}s...")
+        time.sleep(wait)
+    else:
+        print(f"[warn] {year}{pkg_num:05d} — empty after 3 attempts, skipping")
         return False
 
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +80,7 @@ def download_package(year: int, pkg_num: int, output_root: str = BRONZE_PATH) ->
     return True
 
 
-def download_range(year: int, start: int, end: int, output_root: str = BRONZE_PATH, delay: float = 2.0) -> int:
+def download_range(year: int, start: int, end: int, output_root: str = BRONZE_PATH, delay: float = 5.0) -> int:
     downloaded = 0
     for pkg_num in range(start, end + 1):
         if download_package(year, pkg_num, output_root):
@@ -84,8 +96,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest TED daily packages into Bronze layer")
     parser.add_argument("--year", type=int, default=2026)
     parser.add_argument("--start", type=int, required=True, help="First package number (e.g. 1)")
-    parser.add_argument("--end", type=int, required=True, help="Last package number (e.g. 90)")
+    parser.add_argument("--end", type=int, required=True, help="Last package number (e.g. 100)")
     parser.add_argument("--output", default=BRONZE_PATH, help="Override BRONZE_PATH")
+    parser.add_argument("--delay", type=float, default=5.0, help="Seconds between requests")
     args = parser.parse_args()
 
-    download_range(args.year, args.start, args.end, args.output)
+    download_range(args.year, args.start, args.end, args.output, args.delay)
