@@ -12,6 +12,7 @@ Usage:
 """
 
 import os
+import time
 import tarfile
 import requests
 from pathlib import Path
@@ -67,11 +68,12 @@ def download_package(year: int, pkg_num: int, output_root: str = BRONZE_PATH) ->
     return True
 
 
-def download_range(year: int, start: int, end: int, output_root: str = BRONZE_PATH) -> int:
+def download_range(year: int, start: int, end: int, output_root: str = BRONZE_PATH, delay: float = 2.0) -> int:
     downloaded = 0
     for pkg_num in range(start, end + 1):
         if download_package(year, pkg_num, output_root):
             downloaded += 1
+        time.sleep(delay)
     print(f"\nDone — {downloaded} new packages downloaded.")
     return downloaded
 
