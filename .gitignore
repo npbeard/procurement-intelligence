@@ -1,0 +1,64 @@
+# Transcripts and meeting notes (privacy)
+transcript*.txt
+*_audio.txt
+*.srt
+*.vtt
+
+# Environment and secrets
+.env
+.env.*
+*.env
+secrets/
+credentials/
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter / Databricks notebooks output
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Virtual environments
+.venv/
+venv/
+env/
+.virtualenv/
+
+# Data files (raw TED downloads — too large for git)
+data/
+*.zip
+*.tar.gz
+*.xml
+*.parquet
+*.delta/
+
+# Delta Lake transaction logs
+_delta_log/
+
+# Databricks
+.databricks/
+databricks.yml.local
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
