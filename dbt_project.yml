@@ -1,0 +1,22 @@
+name: ted_intelligence
+version: "1.0.0"
+profile: ted_intelligence          # must match profiles.yml key
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  ted_intelligence:
+    staging:                       # BRONZE: cheap, always fresh
+      +materialized: view
+      +tags: ["bronze"]
+    silver:
+      +materialized: table
+      +tags: ["silver"]
+    gold:
+      +materialized: table         # or incremental for big marts
+      +tags: ["gold"]

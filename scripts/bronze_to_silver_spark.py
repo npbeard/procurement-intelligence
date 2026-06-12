@@ -1,0 +1,325 @@
+"""
+bronze_to_silver_spark.py — Stage 2 (Databricks / Spark version).
+
+Reads the raw .xml notices from a Unity Catalog Volume, parses the nested
+eForms structure with lxml (in parallel across the cluster), builds four
+relational Spark DataFrames, and writes them as Delta tables in a catalog
+(the silver layer of your Databricks data warehouse).
+
+The parsing logic is identical to the local version — only the orchestration
+(reading files, distributing the work, and writing the output) is Spark.
+
+Run as a Databricks job (Python file task) or in a notebook:
+    bronze_to_silver_spark.py --bronze /Volumes/main/ted/raw/bronze \
+                              --target main.ted_silver
+"""
+
+from __future__ import annotations
+import sys
+from pathlib import Path
+
+import argparse
+
+from lxml import etree
+from pyspark.sql import SparkSession
+from pyspark.sql.types import (
+    DoubleType, LongType, StringType, StructField, StructType,
+)
+
+import json
+import pandas as pd
+from pyspark.sql import functions as F
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import config
+from config import get_spark
+
+from tqdm.auto import tqdm
+
+TMP_PARSED = "tmp_parsed_records"
+
+# --- Namespaces (unchanged from the local version) ---------------------------
+NS = {
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    "efac": "http://data.europa.eu/p27/eforms-ubl-extension-aggregate-components/1",
+    "efbc": "http://data.europa.eu/p27/eforms-ubl-extension-basic-components/1",
+}
+
+TABLE_NAMES = ["notices", "lots", "award_criteria", "organizations"]
+
+
+# --- Small extraction helpers (unchanged) ------------------------------------
+def _text(node, path: str) -> str | None:
+    """Find ONE element at `path` under `node` and return its stripped text, or None."""
+    found = node.find(path, NS)
+    if found is None or found.text is None:
+        return None
+    text = found.text.strip()
+    return text or None
+
+
+def _num(node, path: str) -> float | None:
+    """Same as _text, but convert the value to a float (for weights)."""
+    raw = _text(node, path)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+# --- Per-file parsing --------------------------------------------------------
+def parse_bytes(content: bytes, source: str) -> dict[str, list]:
+    """Parse ONE notice (given its raw bytes) into rows for all four tables.
+
+    This is the old parse_one, with two changes for Spark:
+      * it reads from bytes (etree.fromstring) because Spark hands us file
+        *content*, not paths;
+      * errors are captured in an "errors" list instead of raised, so a single
+        bad file can't kill the distributed job.
+    """
+    out: dict[str, list] = {name: [] for name in TABLE_NAMES}
+    out["errors"] = []
+
+    try:
+        root = etree.fromstring(content)
+    except Exception as exc:
+        out["errors"].append((source, f"{type(exc).__name__}: {exc}"))
+        return out
+
+    pub_id = _text(root, ".//efbc:NoticePublicationID")
+    if not pub_id:                       # no key to join on -> skip, but record it
+        out["errors"].append((source, "no publication id"))
+        return out
+
+    notice_type = etree.QName(root).localname
+
+    out["notices"].append({
+        "notice_publication_id": pub_id,
+        "notice_uuid": _text(root, "./cbc:ID"),
+        "notice_type": notice_type,
+        "subtype_code": _text(root, ".//efac:NoticeSubType/cbc:SubTypeCode"),
+        "issue_date": _text(root, "./cbc:IssueDate"),
+        "publication_date": _text(root, ".//efbc:PublicationDate"),
+        "gazette_id": _text(root, ".//efbc:GazetteID"),
+        "language": _text(root, "./cbc:NoticeLanguageCode"),
+        "regulatory_domain": _text(root, "./cbc:RegulatoryDomain"),
+        "buyer_org_ref": _text(
+            root, "./cac:ContractingParty/cac:Party/cac:PartyIdentification/cbc:ID"
+        ),
+        "source_file": source.rsplit("/", 1)[-1],
+    })
+
+    for lot in root.findall(".//cac:ProcurementProjectLot", NS):
+        lot_id = _text(lot, "./cbc:ID")
+        project = "./cac:ProcurementProject"
+        out["lots"].append({
+            "notice_publication_id": pub_id,
+            "lot_id": lot_id,
+            "name": _text(lot, f"{project}/cbc:Name"),
+            "description": _text(lot, f"{project}/cbc:Description"),
+            "procurement_type": _text(lot, f"{project}/cbc:ProcurementTypeCode"),
+            "cpv_code": _text(
+                lot, f"{project}/cac:MainCommodityClassification/cbc:ItemClassificationCode"
+            ),
+        })
+        for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
+            out["award_criteria"].append({
+                "notice_publication_id": pub_id,
+                "lot_id": lot_id,
+                "criterion_index": i,
+                "criterion_type": _text(crit, "./cbc:AwardingCriterionTypeCode"),
+                "description": _text(crit, "./cbc:Description"),
+                "weight": _num(crit, ".//efbc:ParameterNumeric"),
+                "weight_type": _text(crit, ".//efbc:ParameterCode"),
+            })
+
+    for org in root.findall(".//efac:Organizations/efac:Organization", NS):
+        company = "./efac:Company"
+        out["organizations"].append({
+            "notice_publication_id": pub_id,
+            "org_ref": _text(org, f"{company}/cac:PartyIdentification/cbc:ID"),
+            "name": _text(org, f"{company}/cac:PartyName/cbc:Name"),
+            "city": _text(org, f"{company}/cac:PostalAddress/cbc:CityName"),
+            "country_code": _text(
+                org, f"{company}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"
+            ),
+            "company_id": _text(org, f"{company}/cac:PartyLegalEntity/cbc:CompanyID"),
+            "website": _text(org, f"{company}/cbc:WebsiteURI"),
+        })
+
+    return out
+
+
+# --- Spark table schemas + keys ----------------------------------------------
+# Same columns/types as the Polars version, expressed as Spark StructTypes.
+SCHEMAS: dict[str, StructType] = {
+    "notices": StructType([
+        StructField("notice_publication_id", StringType()),
+        StructField("notice_uuid", StringType()),
+        StructField("notice_type", StringType()),
+        StructField("subtype_code", StringType()),
+        StructField("issue_date", StringType()),
+        StructField("publication_date", StringType()),
+        StructField("gazette_id", StringType()),
+        StructField("language", StringType()),
+        StructField("regulatory_domain", StringType()),
+        StructField("buyer_org_ref", StringType()),
+        StructField("source_file", StringType()),
+    ]),
+    "lots": StructType([
+        StructField("notice_publication_id", StringType()),
+        StructField("lot_id", StringType()),
+        StructField("name", StringType()),
+        StructField("description", StringType()),
+        StructField("procurement_type", StringType()),
+        StructField("cpv_code", StringType()),
+    ]),
+    "award_criteria": StructType([
+        StructField("notice_publication_id", StringType()),
+        StructField("lot_id", StringType()),
+        StructField("criterion_index", LongType()),
+        StructField("criterion_type", StringType()),
+        StructField("description", StringType()),
+        StructField("weight", DoubleType()),
+        StructField("weight_type", StringType()),
+    ]),
+    "organizations": StructType([
+        StructField("notice_publication_id", StringType()),
+        StructField("org_ref", StringType()),
+        StructField("name", StringType()),
+        StructField("city", StringType()),
+        StructField("country_code", StringType()),
+        StructField("company_id", StringType()),
+        StructField("website", StringType()),
+    ]),
+}
+
+KEYS: dict[str, list[str]] = {
+    "notices": ["notice_publication_id"],
+    "lots": ["notice_publication_id", "lot_id"],
+    "award_criteria": ["notice_publication_id", "lot_id", "criterion_index"],
+    "organizations": ["notice_publication_id", "org_ref"],
+}
+
+# One row per parsed record: which table it belongs to + the record as JSON.
+PARSE_OUTPUT_SCHEMA = StructType([
+    StructField("table", StringType()),
+    StructField("data",  StringType()),
+])
+
+def _parse_partition(iterator):
+    """Runs on the cluster. Calls the UNCHANGED parse_bytes per file."""
+    for pdf in iterator:                       # columns: path, content
+        records = []
+        for path, content in zip(pdf["path"], pdf["content"]):
+            out = parse_bytes(bytes(content), path)
+            for name in TABLE_NAMES:
+                for row in out[name]:
+                    records.append((name, json.dumps(row)))
+            for src, reason in out["errors"]:
+                records.append(("__error__",
+                                json.dumps({"source": src, "reason": reason})))
+        yield pd.DataFrame(records, columns=["table", "data"])
+
+def list_xml_paths(spark, raw_volume):
+    """Cheap listing of all XML paths (selecting only `path` skips reading bytes)."""
+    df = (
+        spark.read.format("binaryFile")
+        .option("recursiveFileLookup", "true")
+        .option("pathGlobFilter", "*.xml")
+        .load(raw_volume)
+        .select("path")
+    )
+    return [r["path"] for r in df.collect()]
+
+
+def already_parsed_files(spark, target):
+    """Filenames already present in the notices table (the 'done' marker)."""
+    tbl = f"{target}.notices"
+    if not spark.catalog.tableExists(tbl):
+        return set()
+    return {
+        r["source_file"]
+        for r in spark.table(tbl).select("source_file").distinct().collect()
+    }
+
+def build_table_dataframes(spark, raw_volume, target):
+    all_paths = list_xml_paths(spark, raw_volume)
+    done = already_parsed_files(spark, target)
+    new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
+
+    print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
+          f"| {len(new_paths)} new to process")
+    if not new_paths:
+        return {}                                  # nothing to do
+
+    # Load ONLY the new files' content (passing the explicit path list)
+    files = (
+        spark.read.format("binaryFile")
+        .load(new_paths)
+        .select("path", "content")
+    )
+
+    # Parse on the driver (has lxml, no UDF sandbox)
+    bucket = {name: [] for name in TABLE_NAMES}
+    errors = []
+    for row in tqdm(files.toLocalIterator(), total=len(new_paths),
+                    desc="Parsing new files", unit="file"):
+        out = parse_bytes(bytes(row["content"]), row["path"])
+        for name in TABLE_NAMES:
+            bucket[name].extend(out[name])
+        errors.extend(out["errors"])
+
+    tables = {}
+    for name in TABLE_NAMES:
+        rows = [tuple(r.get(f.name) for f in SCHEMAS[name].fields) for r in bucket[name]]
+        df = spark.createDataFrame(rows, SCHEMAS[name]).dropDuplicates(KEYS[name])
+        tables[name] = df
+        tqdm.write(f"  {name:15s} {df.count():6d} new rows")
+
+    if errors:
+        tqdm.write(f"\n{len(errors)} file(s) skipped or failed (first few):")
+        for src, reason in errors[:10]:
+            tqdm.write(f"  - {src.rsplit('/', 1)[-1]}: {reason}")
+    return tables
+
+def write_delta(tables: dict, target: str, writing_mode: str = "append") -> None:
+    """Append each DataFrame to <catalog>.<schema>.<name>. Notices written LAST."""
+    # notices is the 'done' marker, so commit it only after the child tables.
+    order = [n for n in tables if n != "notices"]
+    if "notices" in tables:
+        order.append("notices")
+
+    for name in tqdm(order, total=len(order), desc="Writing Delta", unit="table"):
+        full_name = f"{target}.{name}"
+        (
+            tables[name].write.format("delta")
+            .mode(writing_mode)
+            .option("mergeSchema", "true")
+            .saveAsTable(full_name)
+        )
+        tqdm.write(f"  wrote {full_name}")
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Incrementally shred new bronze XML into Delta.")
+    p.add_argument("--raw-volume", default=config.RAW_XML_VOLUME)
+    p.add_argument("--target", default=config.PARSED_TARGET)
+    args = p.parse_args()
+
+    spark = get_spark()
+    catalog, schema = args.target.split(".")
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
+
+    tables = build_table_dataframes(spark, args.raw_volume, args.target)
+    if not tables:
+        print("Nothing new to parse — tables are up to date.")
+        return
+    write_delta(tables, args.target)
+    print(f"\nDone. Appended new rows under {args.target}")
+
+if __name__ == "__main__":
+    main()
