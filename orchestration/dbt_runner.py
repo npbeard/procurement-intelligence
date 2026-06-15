@@ -23,7 +23,7 @@ print(f"repo_root: {repo_root}")
 # The WSFS mount used by Databricks Repos returns non-standard errors for
 # optional files (e.g. selectors.yml) that dbt tries to read on startup,
 # causing dbt to abort. A local copy avoids this entirely.
-tmp_dir = tempfile.mkdtemp(dir="/local_disk0")
+tmp_dir = tempfile.mkdtemp(dir="/tmp")
 
 for fname in ["dbt_project.yml", "profiles.yml", "package-lock.yml", "packages.yml"]:
     src = os.path.join(repo_root, fname)
