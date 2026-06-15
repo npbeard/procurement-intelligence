@@ -54,24 +54,7 @@ JOB_CONFIG: dict = {
         "pause_status": "PAUSED",
     },
 
-    # Serverless environments — packages installed before the task runs.
-    "environments": [
-        {
-            "environment_key": "bronze_env",
-            "spec": {
-                "client": "1",
-                "dependencies": ["lxml>=5.0", "tqdm"],
-            },
-        },
-        {
-            "environment_key": "dbt_env",
-            "spec": {
-                "client": "1",
-                "dependencies": ["dbt-databricks>=1.8"],
-            },
-        },
-    ],
-
+    # Packages are installed inside each notebook via pip (no environment_key needed).
     "tasks": [
         {
             "task_key": "parse_bronze",
@@ -80,7 +63,6 @@ JOB_CONFIG: dict = {
                 "notebook_path": "orchestration/bronze_runner",
                 "source": "GIT",
             },
-            "environment_key": "bronze_env",
         },
         {
             "task_key": "run_silver_dbt",
@@ -90,7 +72,6 @@ JOB_CONFIG: dict = {
                 "notebook_path": "orchestration/dbt_runner",
                 "source": "GIT",
             },
-            "environment_key": "dbt_env",
         },
     ],
 }
