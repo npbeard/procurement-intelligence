@@ -326,7 +326,7 @@ def already_parsed_files(spark, target):
 
 def build_table_dataframes(spark, raw_volume, target):
     all_paths = list_xml_paths(spark, raw_volume)
-    done = set() #already_parsed_files(spark, target)
+    done = already_parsed_files(spark, target)
     new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
 
     print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
@@ -396,7 +396,7 @@ def main() -> None:
     if not tables:
         print("Nothing new to parse — tables are up to date.")
         return
-    write_delta(tables, args.target)
+    write_delta(tables, args.target, writing_mode="append")
     print(f"\nDone. Appended new rows under {args.target}")
 
 if __name__ == "__main__":
