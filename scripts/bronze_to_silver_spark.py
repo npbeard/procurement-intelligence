@@ -118,6 +118,10 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
         "buyer_org_ref": _text(
             root, "./cac:ContractingParty/cac:Party/cac:PartyIdentification/cbc:ID"
         ),
+        "buyer_legal_type": _text(
+            root, "./cac:ContractingParty/cac:ContractingPartyType/cbc:PartyTypeCode"
+        ),
+        "procurement_procedure": _text(root, "./cac:TenderingProcess/cbc:ProcedureCode"),
         # Notice-level money. Two distinct figures that can both be absent:
         #   estimated_* = the overall estimated contract value (root project)
         #   total_*     = the actual total awarded value (efac:NoticeResult)
@@ -140,11 +144,37 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
         if ref:
             lot_status[ref] = _text(lr, "./cbc:TenderResultCode")
 
+    # Build lot -> tenderer org_ref lookup (only present in CAN award notices).
+    # Chain: LotResult(lot_id -> tender_id) -> LotTender(tender_id -> tpa_id)
+    #        -> TenderingParty(tpa_id -> org_ref)
+    lot_tender: dict[str, str] = {}
+    for lr in root.findall(".//efac:NoticeResult/efac:LotResult", NS):
+        lot_ref = _text(lr, "./efac:TenderLot/cbc:ID")
+        tender_ref = _text(lr, "./efac:LotTender/cbc:ID")
+        if lot_ref and tender_ref:
+            lot_tender[lot_ref] = tender_ref
+
+    tender_tpa: dict[str, str] = {}
+    for lt in root.findall(".//efac:NoticeResult/efac:LotTender", NS):
+        tid = _text(lt, "./cbc:ID")
+        tpa = _text(lt, "./efac:TenderingParty/cbc:ID")
+        if tid and tpa:
+            tender_tpa[tid] = tpa
+
+    tpa_org: dict[str, str] = {}
+    for tpa in root.findall(".//efac:NoticeResult/efac:TenderingParty", NS):
+        tpa_id = _text(tpa, "./cbc:ID")
+        org = _text(tpa, "./efac:Tenderer/cbc:ID")
+        if tpa_id and org:
+            tpa_org[tpa_id] = org
+
     for lot in root.findall(".//cac:ProcurementProjectLot", NS):
         lot_id = _text(lot, "./cbc:ID")
         project = "./cac:ProcurementProject"
         amount_path = f"{project}/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount"
         deadline = "./cac:TenderingProcess/cac:TenderSubmissionDeadlinePeriod"
+        tender_id = lot_tender.get(lot_id)
+        tpa_id = tender_tpa.get(tender_id) if tender_id else None
         out["lots"].append({
             "notice_publication_id": pub_id,
             "lot_id": lot_id,
@@ -159,6 +189,7 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
             "status": lot_status.get(lot_id),
             "submission_deadline_date": _text(lot, f"{deadline}/cbc:EndDate"),
             "submission_deadline_time": _text(lot, f"{deadline}/cbc:EndTime"),
+            "tenderer_org_ref": tpa_org.get(tpa_id) if tpa_id else None,
         })
         for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
             out["award_criteria"].append({
@@ -202,6 +233,8 @@ SCHEMAS: dict[str, StructType] = {
         StructField("language", StringType()),
         StructField("regulatory_domain", StringType()),
         StructField("buyer_org_ref", StringType()),
+        StructField("buyer_legal_type", StringType()),
+        StructField("procurement_procedure", StringType()),
         StructField("estimated_value", DoubleType()),
         StructField("estimated_currency", StringType()),
         StructField("total_value", DoubleType()),
@@ -220,6 +253,7 @@ SCHEMAS: dict[str, StructType] = {
         StructField("status", StringType()),
         StructField("submission_deadline_date", StringType()),
         StructField("submission_deadline_time", StringType()),
+        StructField("tenderer_org_ref", StringType()),
     ]),
     "award_criteria": StructType([
         StructField("notice_publication_id", StringType()),
