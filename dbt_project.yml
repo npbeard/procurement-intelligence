@@ -12,14 +12,11 @@ clean-targets: ["target", "dbt_packages"]
 models:
   ted_intelligence:
     bronze:
-      +schema: ted
       +materialized: view
       +tags: ["bronze"]
     silver:
-      +schema: ted
-      +materialized: table
+      +materialized: view
       +tags: ["silver"]
     gold:
-      +schema: ted
-      +materialized: table
+      +materialized: view
       +tags: ["gold"]
