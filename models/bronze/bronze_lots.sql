@@ -17,4 +17,3 @@ select
         "yyyy-MM-dd'T'HH:mm:ssXXX"
     ) as submission_deadline_time
 from {{ source('ted_raw', 'lots') }}
-limit 1
