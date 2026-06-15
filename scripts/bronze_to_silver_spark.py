@@ -68,6 +68,15 @@ def _num(node, path: str) -> float | None:
         return float(raw)
     except ValueError:
         return None
+    
+
+def _attr(node, path: str, attr: str) -> str | None:
+    """Find ONE element at `path` and return one of its attributes (e.g. currencyID)."""
+    found = node.find(path, NS)
+    if found is None:
+        return None
+    value = found.get(attr)
+    return value.strip() if value else None
 
 
 # --- Per-file parsing --------------------------------------------------------
@@ -109,12 +118,33 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
         "buyer_org_ref": _text(
             root, "./cac:ContractingParty/cac:Party/cac:PartyIdentification/cbc:ID"
         ),
+        # Notice-level money. Two distinct figures that can both be absent:
+        #   estimated_* = the overall estimated contract value (root project)
+        #   total_*     = the actual total awarded value (efac:NoticeResult)
+        "estimated_value": _num(
+            root, "./cac:ProcurementProject/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount"
+        ),
+        "estimated_currency": _attr(
+            root,
+            "./cac:ProcurementProject/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount",
+            "currencyID",
+        ),
+        "total_value": _num(root, ".//efac:NoticeResult/cbc:TotalAmount"),
+        "total_currency": _attr(root, ".//efac:NoticeResult/cbc:TotalAmount", "currencyID"),
         "source_file": source.rsplit("/", 1)[-1],
     })
+
+    lot_status: dict[str, str | None] = {}
+    for lr in root.findall(".//efac:LotResult", NS):
+        ref = _text(lr, "./efac:TenderLot/cbc:ID")
+        if ref:
+            lot_status[ref] = _text(lr, "./cbc:TenderResultCode")
 
     for lot in root.findall(".//cac:ProcurementProjectLot", NS):
         lot_id = _text(lot, "./cbc:ID")
         project = "./cac:ProcurementProject"
+        amount_path = f"{project}/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount"
+        deadline = "./cac:TenderingProcess/cac:TenderSubmissionDeadlinePeriod"
         out["lots"].append({
             "notice_publication_id": pub_id,
             "lot_id": lot_id,
@@ -124,6 +154,11 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
             "cpv_code": _text(
                 lot, f"{project}/cac:MainCommodityClassification/cbc:ItemClassificationCode"
             ),
+            "value": _num(lot, amount_path),
+            "currency": _attr(lot, amount_path, "currencyID"),
+            "status": lot_status.get(lot_id),
+            "submission_deadline_date": _text(lot, f"{deadline}/cbc:EndDate"),
+            "submission_deadline_time": _text(lot, f"{deadline}/cbc:EndTime"),
         })
         for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
             out["award_criteria"].append({
@@ -167,6 +202,10 @@ SCHEMAS: dict[str, StructType] = {
         StructField("language", StringType()),
         StructField("regulatory_domain", StringType()),
         StructField("buyer_org_ref", StringType()),
+        StructField("estimated_value", DoubleType()),
+        StructField("estimated_currency", StringType()),
+        StructField("total_value", DoubleType()),
+        StructField("total_currency", StringType()),
         StructField("source_file", StringType()),
     ]),
     "lots": StructType([
@@ -176,6 +215,11 @@ SCHEMAS: dict[str, StructType] = {
         StructField("description", StringType()),
         StructField("procurement_type", StringType()),
         StructField("cpv_code", StringType()),
+        StructField("value", DoubleType()),
+        StructField("currency", StringType()),
+        StructField("status", StringType()),
+        StructField("submission_deadline_date", StringType()),
+        StructField("submission_deadline_time", StringType()),
     ]),
     "award_criteria": StructType([
         StructField("notice_publication_id", StringType()),
@@ -248,7 +292,7 @@ def already_parsed_files(spark, target):
 
 def build_table_dataframes(spark, raw_volume, target):
     all_paths = list_xml_paths(spark, raw_volume)
-    done = already_parsed_files(spark, target)
+    done = set() #already_parsed_files(spark, target)
     new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
 
     print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
@@ -286,7 +330,7 @@ def build_table_dataframes(spark, raw_volume, target):
             tqdm.write(f"  - {src.rsplit('/', 1)[-1]}: {reason}")
     return tables
 
-def write_delta(tables: dict, target: str, writing_mode: str = "append") -> None:
+def write_delta(tables: dict, target: str, writing_mode: str = "overwrite") -> None:
     """Append each DataFrame to <catalog>.<schema>.<name>. Notices written LAST."""
     # notices is the 'done' marker, so commit it only after the child tables.
     order = [n for n in tables if n != "notices"]

@@ -3,7 +3,7 @@ name = "ted-intelligence"
 version = "0.1.0"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "databricks-connect",      # see version note below
+    "databricks-connect",
     "databricks-sdk>=0.30",
     "requests>=2.31",
     "lxml>=5.0",
@@ -20,6 +20,7 @@ dependencies = [
     "sqlfluff",
     "sqlfluff-templater-dbt",
     "tqdm",
+    "dbt-core"
     
 ]
 

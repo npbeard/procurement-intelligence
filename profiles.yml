@@ -3,7 +3,7 @@ ted_intelligence:
   outputs:
     dev:
       type: databricks
-      catalog: procurement
+      catalog: capstone
       schema: ted
       host: "{{ env_var('DATABRICKS_HOST') | replace('https://', '') }}"
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"

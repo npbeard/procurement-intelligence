@@ -52,6 +52,11 @@ _delta_log/
 .databricks/
 databricks.yml.local
 
+# dbt build artifacts
+dbt_packages/
+target/
+logs/
+
 # macOS
 .DS_Store
 .AppleDouble
