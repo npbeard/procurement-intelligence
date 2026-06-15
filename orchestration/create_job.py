@@ -1,29 +1,29 @@
 """
 create_job.py — Create (or update) the TED daily silver pipeline in Databricks Jobs.
 
-Run this once from your local machine:
+Run once from your local machine:
     python orchestration/create_job.py
 
 Prerequisites:
-  1. .env must contain DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH
-  2. Your GitHub repo must be connected in Databricks:
-       Settings → Linked accounts → Add a git credential (GitHub, Personal Access Token)
-     (Without this, the Git-source job can't clone the repo.)
+  1. .env must contain DATABRICKS_HOST and DATABRICKS_TOKEN
+  2. Your GitHub repo must be linked in Databricks:
+       Settings → Linked accounts → Add a git credential (GitHub PAT with repo scope)
 
 What this creates:
   A Databricks Job named "TED — Daily Silver Pipeline" with two tasks:
-    parse_bronze   — runs scripts/bronze_to_silver_spark.py (incremental XML → Delta)
-    run_silver_dbt — runs orchestration/dbt_runner.py (dbt run --select silver)
+    parse_bronze   — orchestration/bronze_runner (incremental XML → Delta tables)
+    run_silver_dbt — orchestration/dbt_runner (dbt run --select silver)
 
-  The job is scheduled daily at 08:00 UTC but starts PAUSED so you can test
-  manually first. Unpause it in Jobs & Pipelines → Edit → Schedule → Unpaused.
+  The job runs on serverless compute, is scheduled daily at 08:00 UTC,
+  and starts PAUSED so you can test manually first.
+  To start: Jobs & Pipelines → TED — Daily Silver Pipeline → Run now.
+  To activate schedule: Edit → Schedule → Unpaused.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import sys
 
 import requests
 from dotenv import load_dotenv
@@ -32,15 +32,14 @@ load_dotenv()
 
 HOST  = os.environ["DATABRICKS_HOST"].rstrip("/")
 TOKEN = os.environ["DATABRICKS_TOKEN"]
-HTTP_PATH = os.environ["DATABRICKS_HTTP_PATH"]
 
-GITHUB_REPO = "https://github.com/npbeard/procurement-intelligence.git"
+GITHUB_REPO   = "https://github.com/npbeard/procurement-intelligence.git"
 GITHUB_BRANCH = "main"
 
 HEADERS = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 
-JOB_CONFIG = {
+JOB_CONFIG: dict = {
     "name": "TED — Daily Silver Pipeline",
 
     "git_source": {
@@ -55,7 +54,7 @@ JOB_CONFIG = {
         "pause_status": "PAUSED",
     },
 
-    # Serverless environments — libraries installed before the task runs.
+    # Serverless environments — packages installed before the task runs.
     "environments": [
         {
             "environment_key": "bronze_env",
@@ -77,8 +76,9 @@ JOB_CONFIG = {
         {
             "task_key": "parse_bronze",
             "description": "Parse new XML notices from Volume → bronze Delta tables (incremental).",
-            "python_file_task": {
-                "python_file": "scripts/bronze_to_silver_spark.py",
+            "notebook_task": {
+                "notebook_path": "orchestration/bronze_runner",
+                "source": "GIT",
             },
             "environment_key": "bronze_env",
         },
@@ -86,41 +86,44 @@ JOB_CONFIG = {
             "task_key": "run_silver_dbt",
             "description": "Build silver dbt models from bronze Delta tables.",
             "depends_on": [{"task_key": "parse_bronze"}],
-            "python_file_task": {
-                "python_file": "orchestration/dbt_runner.py",
+            "notebook_task": {
+                "notebook_path": "orchestration/dbt_runner",
+                "source": "GIT",
             },
             "environment_key": "dbt_env",
-            "task_key_env_vars": {
-                "DATABRICKS_HTTP_PATH": HTTP_PATH,
-            },
         },
     ],
 }
 
 
 def get_existing_job_id(name: str) -> int | None:
-    """Return the job ID if a job with this name already exists, else None."""
-    url = f"{HOST}/api/2.1/jobs/list"
-    resp = requests.get(url, headers=HEADERS, params={"name": name})
+    resp = requests.get(
+        f"{HOST}/api/2.1/jobs/list",
+        headers=HEADERS,
+        params={"name": name},
+    )
     resp.raise_for_status()
-    jobs = resp.json().get("jobs", [])
-    for job in jobs:
+    for job in resp.json().get("jobs", []):
         if job["settings"]["name"] == name:
             return job["job_id"]
     return None
 
 
 def create_job(config: dict) -> int:
-    url = f"{HOST}/api/2.1/jobs/create"
-    resp = requests.post(url, headers=HEADERS, json=config)
-    resp.raise_for_status()
+    resp = requests.post(f"{HOST}/api/2.1/jobs/create", headers=HEADERS, json=config)
+    if not resp.ok:
+        raise RuntimeError(f"Job creation failed ({resp.status_code}): {resp.text}")
     return resp.json()["job_id"]
 
 
 def update_job(job_id: int, config: dict) -> None:
-    url = f"{HOST}/api/2.1/jobs/reset"
-    resp = requests.post(url, headers=HEADERS, json={"job_id": job_id, "new_settings": config})
-    resp.raise_for_status()
+    resp = requests.post(
+        f"{HOST}/api/2.1/jobs/reset",
+        headers=HEADERS,
+        json={"job_id": job_id, "new_settings": config},
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Job update failed ({resp.status_code}): {resp.text}")
 
 
 def main() -> None:
@@ -128,21 +131,21 @@ def main() -> None:
     existing_id = get_existing_job_id(job_name)
 
     if existing_id:
-        print(f"Job '{job_name}' already exists (id={existing_id}). Updating...")
+        print(f"Updating existing job '{job_name}' (id={existing_id})...")
         update_job(existing_id, JOB_CONFIG)
         job_id = existing_id
-        print(f"Updated job {job_id}.")
     else:
+        print(f"Creating job '{job_name}'...")
         job_id = create_job(JOB_CONFIG)
-        print(f"Created job '{job_name}' (id={job_id}).")
 
-    workspace_url = f"{HOST}/jobs/{job_id}"
-    print(f"\nOpen in Databricks: {workspace_url}")
-    print("\nNext steps:")
-    print("  1. Open the link above and run the job manually once to verify it works.")
-    print("  2. When happy, unpause the schedule: Edit → Schedule → Unpaused.")
-    print("  3. Make sure your GitHub repo is linked in Databricks:")
-    print("     Settings → Linked accounts → Add a git credential.")
+    print(f"\nJob id: {job_id}")
+    print(f"Open:   {HOST}/jobs/{job_id}")
+    print()
+    print("Next steps:")
+    print("  1. Make sure your GitHub is linked in Databricks:")
+    print("     Settings → Linked accounts → Add a git credential")
+    print("  2. Click 'Run now' in the job UI to test it manually.")
+    print("  3. When happy, edit the schedule → Unpaused to activate daily runs.")
 
 
 if __name__ == "__main__":
