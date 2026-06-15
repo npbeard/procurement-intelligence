@@ -54,7 +54,7 @@ if os.path.exists(os.path.join(tmp_dir, "packages.yml")):
 
 # Run silver models (capture output so errors surface in job logs)
 result = subprocess.run(
-    ["dbt", "run", "--select", "silver", "--profiles-dir", tmp_dir],
+    ["dbt", "run", "--select", "+silver", "--profiles-dir", tmp_dir],
     capture_output=True, text=True, env=dbt_env,
 )
 
