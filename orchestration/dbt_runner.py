@@ -36,23 +36,27 @@ for dname in ["models", "seeds", "macros", "tests", "analyses", "snapshots"]:
         shutil.copytree(src, os.path.join(tmp_dir, dname))
 
 os.chdir(tmp_dir)
-print(f"Working in: {tmp_dir}")
-print("Files:", os.listdir(tmp_dir))
 
-# COMMAND ----------
+# Get runtime credentials from the Databricks notebook context.
+# DATABRICKS_HOST / DATABRICKS_TOKEN are not auto-set as env vars in serverless,
+# but are available via dbutils context and needed by the dbt-databricks adapter.
+ctx = dbutils.notebook.entry_point.getDbutils().notebook().getContext()
+dbt_env = os.environ.copy()
+dbt_env["DATABRICKS_HOST"]      = ctx.apiUrl().get()           # includes https://
+dbt_env["DATABRICKS_TOKEN"]     = ctx.apiToken().get()
+dbt_env["DATABRICKS_HTTP_PATH"] = dbt_env.get(
+    "DATABRICKS_HTTP_PATH", "/sql/1.0/warehouses/9d31ee3378c194b4"
+)
 
 # Install dbt packages (dbt-utils etc. from packages.yml)
 if os.path.exists(os.path.join(tmp_dir, "packages.yml")):
-    subprocess.run(["dbt", "deps", "--profiles-dir", tmp_dir], check=False)
+    subprocess.run(["dbt", "deps", "--profiles-dir", tmp_dir], env=dbt_env, check=False)
 
 # Run silver models (capture output so errors surface in job logs)
 result = subprocess.run(
     ["dbt", "run", "--select", "silver", "--profiles-dir", tmp_dir],
-    capture_output=True, text=True,
+    capture_output=True, text=True, env=dbt_env,
 )
-print(result.stdout[-4000:] if len(result.stdout) > 4000 else result.stdout)
-if result.stderr:
-    print("STDERR:", result.stderr[-2000:])
 
 if result.returncode != 0:
     out_tail = (result.stdout + "\n" + result.stderr)[-3000:]
