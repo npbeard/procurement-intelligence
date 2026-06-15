@@ -45,11 +45,14 @@ print("Files:", os.listdir(tmp_dir))
 if os.path.exists(os.path.join(tmp_dir, "packages.yml")):
     subprocess.run(["dbt", "deps", "--profiles-dir", tmp_dir], check=False)
 
-# Run silver models
+# Run silver models (capture output so errors surface in job logs)
 result = subprocess.run(
     ["dbt", "run", "--select", "silver", "--profiles-dir", tmp_dir],
-    check=False,
+    capture_output=True, text=True,
 )
+print(result.stdout[-4000:] if len(result.stdout) > 4000 else result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[-2000:])
 
 if result.returncode != 0:
     raise RuntimeError(f"dbt run failed with exit code {result.returncode}")
