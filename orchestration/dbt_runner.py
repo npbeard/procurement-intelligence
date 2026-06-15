@@ -1,6 +1,5 @@
 # Databricks notebook source
 # Orchestration Task 2: build silver dbt models.
-# Runs on serverless compute in Databricks Jobs (Git source).
 
 # COMMAND ----------
 
@@ -15,7 +14,13 @@ subprocess.run(
 
 import os
 
-repo_root = os.getcwd()
+ctx = dbutils.notebook.entry_point.getDbutils().notebook().getContext()
+nb_path = ctx.notebookPath().get()
+repo_root = "/Workspace" + "/".join(nb_path.split("/")[:-2])
+os.chdir(repo_root)
+print(f"repo_root: {repo_root}")
+
+# COMMAND ----------
 
 result = subprocess.run(
     ["dbt", "run", "--select", "silver", "--profiles-dir", repo_root],
