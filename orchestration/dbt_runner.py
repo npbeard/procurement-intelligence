@@ -12,18 +12,42 @@ subprocess.run(
 
 # COMMAND ----------
 
-import os
+import os, shutil, tempfile
 
 ctx = dbutils.notebook.entry_point.getDbutils().notebook().getContext()
 nb_path = ctx.notebookPath().get()
 repo_root = "/Workspace" + "/".join(nb_path.split("/")[:-2])
-os.chdir(repo_root)
 print(f"repo_root: {repo_root}")
+
+# Copy dbt project to a local temp dir to avoid WSFS FUSE filesystem quirks.
+# The WSFS mount used by Databricks Repos returns non-standard errors for
+# optional files (e.g. selectors.yml) that dbt tries to read on startup,
+# causing dbt to abort. A local copy avoids this entirely.
+tmp_dir = tempfile.mkdtemp(dir="/local_disk0")
+
+for fname in ["dbt_project.yml", "profiles.yml", "package-lock.yml", "packages.yml"]:
+    src = os.path.join(repo_root, fname)
+    if os.path.exists(src):
+        shutil.copy2(src, os.path.join(tmp_dir, fname))
+
+for dname in ["models", "seeds", "macros", "tests", "analyses", "snapshots"]:
+    src = os.path.join(repo_root, dname)
+    if os.path.exists(src):
+        shutil.copytree(src, os.path.join(tmp_dir, dname))
+
+os.chdir(tmp_dir)
+print(f"Working in: {tmp_dir}")
+print("Files:", os.listdir(tmp_dir))
 
 # COMMAND ----------
 
+# Install dbt packages (dbt-utils etc. from packages.yml)
+if os.path.exists(os.path.join(tmp_dir, "packages.yml")):
+    subprocess.run(["dbt", "deps", "--profiles-dir", tmp_dir], check=False)
+
+# Run silver models
 result = subprocess.run(
-    ["dbt", "run", "--select", "silver", "--profiles-dir", repo_root],
+    ["dbt", "run", "--select", "silver", "--profiles-dir", tmp_dir],
     check=False,
 )
 
