@@ -55,6 +55,7 @@ if result.stderr:
     print("STDERR:", result.stderr[-2000:])
 
 if result.returncode != 0:
-    raise RuntimeError(f"dbt run failed with exit code {result.returncode}")
+    out_tail = (result.stdout + "\n" + result.stderr)[-3000:]
+    raise RuntimeError(f"dbt run failed (exit {result.returncode}):\n{out_tail}")
 
 print("dbt silver models completed successfully.")
