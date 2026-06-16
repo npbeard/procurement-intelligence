@@ -6,18 +6,19 @@ Run once from your local machine:
 
 Prerequisites:
   1. .env must contain DATABRICKS_HOST and DATABRICKS_TOKEN
-  2. Your GitHub repo must be linked in Databricks:
-       Settings → Linked accounts → Add a git credential (GitHub PAT with repo scope)
+  2. A Databricks Repo must exist at REPO_PATH below, checked out to the
+     branch you want the job to run (sync it via the Repos API or the UI
+     before each deploy — this workspace is serverless-only, which doesn't
+     support git_source/python_file_task, so notebooks run from the Repo's
+     WORKSPACE path instead of a live git checkout).
 
 What this creates:
-  A Databricks Job named "TED — Daily Silver Pipeline" with two tasks:
+  A Databricks Job named "TED — Daily Silver Pipeline" with three tasks:
+    ingest_bronze  — orchestration/ingest_runner (TED → raw XML Volume, resumes from latest edition)
     parse_bronze   — orchestration/bronze_runner (incremental XML → Delta tables)
-    run_silver_dbt — orchestration/dbt_runner (dbt run --select silver)
+    run_silver_dbt — orchestration/dbt_runner (dbt run --select +silver)
 
-  The job runs on serverless compute, is scheduled daily at 08:00 UTC,
-  and starts PAUSED so you can test manually first.
-  To start: Jobs & Pipelines → TED — Daily Silver Pipeline → Run now.
-  To activate schedule: Edit → Schedule → Unpaused.
+  The job runs on serverless compute and is scheduled daily at 08:00 UTC.
 """
 
 from __future__ import annotations
@@ -33,8 +34,7 @@ load_dotenv()
 HOST  = os.environ["DATABRICKS_HOST"].rstrip("/")
 TOKEN = os.environ["DATABRICKS_TOKEN"]
 
-GITHUB_REPO   = "https://github.com/npbeard/procurement-intelligence.git"
-GITHUB_BRANCH = "main"
+REPO_PATH = "/Repos/nicopbeard@gmail.com/procurement-intelligence"
 
 HEADERS = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
@@ -42,26 +42,31 @@ HEADERS = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json
 JOB_CONFIG: dict = {
     "name": "TED — Daily Silver Pipeline",
 
-    "git_source": {
-        "git_url": GITHUB_REPO,
-        "git_provider": "gitHub",
-        "git_branch": GITHUB_BRANCH,
-    },
-
     "schedule": {
         "quartz_cron_expression": "0 0 8 * * ?",
         "timezone_id": "UTC",
-        "pause_status": "PAUSED",
+        "pause_status": "UNPAUSED",
     },
 
     # Packages are installed inside each notebook via pip (no environment_key needed).
+    # Notebooks run from the Databricks Repo's WORKSPACE path (serverless doesn't
+    # support git_source notebook/python_file tasks on this workspace).
     "tasks": [
+        {
+            "task_key": "ingest_bronze",
+            "description": "Download new TED daily packages → raw XML Volume (resumes from latest edition).",
+            "notebook_task": {
+                "notebook_path": f"{REPO_PATH}/orchestration/ingest_runner",
+                "source": "WORKSPACE",
+            },
+        },
         {
             "task_key": "parse_bronze",
             "description": "Parse new XML notices from Volume → bronze Delta tables (incremental).",
+            "depends_on": [{"task_key": "ingest_bronze"}],
             "notebook_task": {
-                "notebook_path": "orchestration/bronze_runner",
-                "source": "GIT",
+                "notebook_path": f"{REPO_PATH}/orchestration/bronze_runner",
+                "source": "WORKSPACE",
             },
         },
         {
@@ -69,8 +74,8 @@ JOB_CONFIG: dict = {
             "description": "Build silver dbt models from bronze Delta tables.",
             "depends_on": [{"task_key": "parse_bronze"}],
             "notebook_task": {
-                "notebook_path": "orchestration/dbt_runner",
-                "source": "GIT",
+                "notebook_path": f"{REPO_PATH}/orchestration/dbt_runner",
+                "source": "WORKSPACE",
             },
         },
     ],
@@ -122,11 +127,8 @@ def main() -> None:
     print(f"\nJob id: {job_id}")
     print(f"Open:   {HOST}/jobs/{job_id}")
     print()
-    print("Next steps:")
-    print("  1. Make sure your GitHub is linked in Databricks:")
-    print("     Settings → Linked accounts → Add a git credential")
-    print("  2. Click 'Run now' in the job UI to test it manually.")
-    print("  3. When happy, edit the schedule → Unpaused to activate daily runs.")
+    print("Note: this job runs notebooks from the Databricks Repo's WORKSPACE path.")
+    print(f"Sync the Repo at {REPO_PATH} to the branch you want before each deploy.")
 
 
 if __name__ == "__main__":
