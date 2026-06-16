@@ -332,11 +332,17 @@ def _parse_paths_to_tables(spark, paths: list[str]) -> dict:
         .select("path", "content")
     )
 
-    # Parse on the driver (has lxml, no UDF sandbox)
+    # Parse on the driver (has lxml, no UDF sandbox). Use collect() rather than
+    # toLocalIterator(): on serverless (Spark Connect), toLocalIterator() holds
+    # a server-side streaming execute handle open across the whole loop, and
+    # the per-row lxml parsing here is slow enough that the gaps between row
+    # fetches exceed the server's inactivity timeout, killing the handle with
+    # INVALID_HANDLE.OPERATION_ABANDONED. collect() fetches the batch's file
+    # content in one RPC, so parsing afterwards never touches Spark Connect.
+    rows = files.collect()
     bucket = {name: [] for name in TABLE_NAMES}
     errors = []
-    for row in tqdm(files.toLocalIterator(), total=len(paths),
-                    desc="Parsing", unit="file"):
+    for row in tqdm(rows, total=len(rows), desc="Parsing", unit="file"):
         out = parse_bytes(bytes(row["content"]), row["path"])
         for name in TABLE_NAMES:
             bucket[name].extend(out[name])
