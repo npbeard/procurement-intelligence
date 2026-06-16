@@ -112,12 +112,14 @@ def latest_ingested_edition(w: WorkspaceClient, raw_volume: str) -> tuple[int, i
 
 
 def ingest_latest(raw_volume: str = config.RAW_XML_VOLUME,
-                   max_consecutive_misses: int = 5,
-                   hard_cap: int = 80) -> None:
+                   max_consecutive_misses: int = 10,
+                   hard_cap: int = 260,
+                   batch_size: int = 10) -> None:
     """
     Resume from the latest edition already in the Volume and ingest every
-    edition published since, up through today. TED publishes on business
-    days only, so a run of `max_consecutive_misses` 404s is treated as
+    edition published since, up through today. Editions within a batch are
+    fetched concurrently. TED publishes on business days only, so a run of
+    `max_consecutive_misses` 404s (in submission order) is treated as
     "caught up" rather than an error.
     """
     w = WorkspaceClient()
@@ -138,20 +140,28 @@ def ingest_latest(raw_volume: str = config.RAW_XML_VOLUME,
     ingested_notices = 0
 
     while consecutive_misses < max_consecutive_misses and attempts < hard_cap:
-        ojs_number = f"{year}{seq:05d}"
-        _, status, n = ingest_one(ojs_number, raw_volume, w)
-        print(f"{ojs_number}: {status} ({n} notices)")
+        batch = range(seq, seq + min(batch_size, hard_cap - attempts))
+        ojs_numbers = [f"{year}{s:05d}" for s in batch]
 
-        if status == "missing":
-            consecutive_misses += 1
-        else:
-            consecutive_misses = 0
-            if status == "ingested":
-                ingested_editions += 1
-                ingested_notices += n
+        with ThreadPoolExecutor(max_workers=len(ojs_numbers)) as pool:
+            results = list(pool.map(
+                lambda o: ingest_one(o, raw_volume, w, upload_workers=8), ojs_numbers
+            ))
 
-        seq += 1
-        attempts += 1
+        for ojs_number, status, n in results:
+            print(f"{ojs_number}: {status} ({n} notices)")
+            attempts += 1
+            if status == "missing":
+                consecutive_misses += 1
+            else:
+                consecutive_misses = 0
+                if status == "ingested":
+                    ingested_editions += 1
+                    ingested_notices += n
+            if consecutive_misses >= max_consecutive_misses:
+                break
+
+        seq += len(ojs_numbers)
 
     print(f"\nDone. Ingested {ingested_editions} new edition(s), "
           f"{ingested_notices} notices, into {raw_volume}.")
