@@ -31,15 +31,12 @@ print(f"repo_root: {repo_root}")
 # COMMAND ----------
 
 import config
-from scripts.bronze_to_silver_spark import build_table_dataframes, write_delta
+from scripts.bronze_to_silver_spark import parse_and_write_incremental
 
 spark = config.get_spark()
 catalog, schema = config.PARSED_TARGET.split(".")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
 
-tables = build_table_dataframes(spark, config.RAW_XML_VOLUME, config.PARSED_TARGET)
-if tables:
-    write_delta(tables, config.PARSED_TARGET, writing_mode="append")
-    print(f"Done. Appended new rows under {config.PARSED_TARGET}.")
-else:
-    print("Nothing new — tables are already up to date.")
+# Batched: bounds driver memory and checkpoints progress so a large backlog
+# (e.g. catching up many editions at once) can't crash the whole task.
+parse_and_write_incremental(spark, config.RAW_XML_VOLUME, config.PARSED_TARGET, batch_size=500)

@@ -324,28 +324,19 @@ def already_parsed_files(spark, target):
         for r in spark.table(tbl).select("source_file").distinct().collect()
     }
 
-def build_table_dataframes(spark, raw_volume, target):
-    all_paths = list_xml_paths(spark, raw_volume)
-    done = already_parsed_files(spark, target)
-    new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
-
-    print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
-          f"| {len(new_paths)} new to process")
-    if not new_paths:
-        return {}                                  # nothing to do
-
-    # Load ONLY the new files' content (passing the explicit path list)
+def _parse_paths_to_tables(spark, paths: list[str]) -> dict:
+    """Load + parse ONE batch of file paths on the driver, return per-table DataFrames."""
     files = (
         spark.read.format("binaryFile")
-        .load(new_paths)
+        .load(paths)
         .select("path", "content")
     )
 
     # Parse on the driver (has lxml, no UDF sandbox)
     bucket = {name: [] for name in TABLE_NAMES}
     errors = []
-    for row in tqdm(files.toLocalIterator(), total=len(new_paths),
-                    desc="Parsing new files", unit="file"):
+    for row in tqdm(files.toLocalIterator(), total=len(paths),
+                    desc="Parsing", unit="file"):
         out = parse_bytes(bytes(row["content"]), row["path"])
         for name in TABLE_NAMES:
             bucket[name].extend(out[name])
@@ -363,6 +354,7 @@ def build_table_dataframes(spark, raw_volume, target):
         for src, reason in errors[:10]:
             tqdm.write(f"  - {src.rsplit('/', 1)[-1]}: {reason}")
     return tables
+
 
 def write_delta(tables: dict, target: str, writing_mode: str = "overwrite") -> None:
     """Append each DataFrame to <catalog>.<schema>.<name>. Notices written LAST."""
@@ -382,22 +374,52 @@ def write_delta(tables: dict, target: str, writing_mode: str = "overwrite") -> N
         tqdm.write(f"  wrote {full_name}")
 
 
+def parse_and_write_incremental(spark, raw_volume: str, target: str,
+                                 batch_size: int = 500) -> None:
+    """
+    Parse new XML files in bounded-size batches, writing each batch to Delta
+    before moving to the next. Parsing happens on the driver (lxml, no UDF
+    sandbox), so without batching, a large backlog holds every parsed record
+    for every new file in driver memory at once — this is what made the
+    ~115-edition backlog crash with an opaque platform error after 100+
+    minutes. Batching bounds that memory use and checkpoints progress:
+    notices are written last within each batch, so a crash mid-run only
+    re-parses the batch in flight, not files already committed earlier.
+    """
+    all_paths = list_xml_paths(spark, raw_volume)
+    done = already_parsed_files(spark, target)
+    new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
+
+    print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
+          f"| {len(new_paths)} new to process")
+    if not new_paths:
+        print("Nothing new to parse — tables are up to date.")
+        return
+
+    batches = [new_paths[i:i + batch_size] for i in range(0, len(new_paths), batch_size)]
+    print(f"Processing in {len(batches)} batch(es) of up to {batch_size} files")
+
+    for i, batch_paths in enumerate(batches, start=1):
+        print(f"\n--- Batch {i}/{len(batches)} ({len(batch_paths)} files) ---")
+        tables = _parse_paths_to_tables(spark, batch_paths)
+        write_delta(tables, target, writing_mode="append")
+
+    print(f"\nDone. Processed {len(new_paths)} new file(s) in {len(batches)} batch(es).")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Incrementally shred new bronze XML into Delta.")
     p.add_argument("--raw-volume", default=config.RAW_XML_VOLUME)
     p.add_argument("--target", default=config.PARSED_TARGET)
+    p.add_argument("--batch-size", type=int, default=500,
+                   help="Max files parsed and written per batch (bounds driver memory).")
     args = p.parse_args()
 
     spark = get_spark()
     catalog, schema = args.target.split(".")
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
 
-    tables = build_table_dataframes(spark, args.raw_volume, args.target)
-    if not tables:
-        print("Nothing new to parse — tables are up to date.")
-        return
-    write_delta(tables, args.target, writing_mode="append")
-    print(f"\nDone. Appended new rows under {args.target}")
+    parse_and_write_incremental(spark, args.raw_volume, args.target, args.batch_size)
 
 if __name__ == "__main__":
     main()
