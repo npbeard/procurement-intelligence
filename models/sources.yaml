@@ -1,8 +1,8 @@
 version: 2
 sources:
   - name: ted_raw
-    catalog: ted
-    schema: intelligence
+    catalog: samples
+    schema: ted_intelligence
     description: "Parsed TED eForms notices written by bronze_to_silver_spark.py."
     tables:
       - name: notices

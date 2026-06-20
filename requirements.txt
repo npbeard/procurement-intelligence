@@ -4,3 +4,5 @@ pandas
 scikit-learn
 plotly
 streamlit
+dbt-databricks
+lxml

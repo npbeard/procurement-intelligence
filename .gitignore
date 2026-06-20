@@ -62,3 +62,4 @@ databricks.yml.local
 .idea/
 *.suo
 *.user
+dbt_internal_packages/
