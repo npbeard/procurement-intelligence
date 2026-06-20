@@ -148,11 +148,15 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
     # Chain: LotResult(lot_id -> tender_id) -> LotTender(tender_id -> tpa_id)
     #        -> TenderingParty(tpa_id -> org_ref)
     lot_tender: dict[str, str] = {}
+    lot_nb_tenders: dict[str, int] = {}
     for lr in root.findall(".//efac:NoticeResult/efac:LotResult", NS):
         lot_ref = _text(lr, "./efac:TenderLot/cbc:ID")
         tender_ref = _text(lr, "./efac:LotTender/cbc:ID")
         if lot_ref and tender_ref:
             lot_tender[lot_ref] = tender_ref
+        nb = _num(lr, "./efbc:ReceivedTendersQuantity")
+        if lot_ref and nb is not None:
+            lot_nb_tenders[lot_ref] = int(nb)
 
     tender_tpa: dict[str, str] = {}
     for lt in root.findall(".//efac:NoticeResult/efac:LotTender", NS):
@@ -190,6 +194,7 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
             "submission_deadline_date": _text(lot, f"{deadline}/cbc:EndDate"),
             "submission_deadline_time": _text(lot, f"{deadline}/cbc:EndTime"),
             "tenderer_org_ref": tpa_org.get(tpa_id) if tpa_id else None,
+            "nb_tenders_received": lot_nb_tenders.get(lot_id),
         })
         for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
             out["award_criteria"].append({
@@ -254,6 +259,7 @@ SCHEMAS: dict[str, StructType] = {
         StructField("submission_deadline_date", StringType()),
         StructField("submission_deadline_time", StringType()),
         StructField("tenderer_org_ref", StringType()),
+        StructField("nb_tenders_received", LongType()),
     ]),
     "award_criteria": StructType([
         StructField("notice_publication_id", StringType()),
