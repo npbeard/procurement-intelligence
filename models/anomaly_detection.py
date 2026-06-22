@@ -1,6 +1,7 @@
 """
 Model 1 — Contract Value Anomaly Detection
 
+
 Flags IT tenders where the contract value is unusually high or low
 compared to similar contracts in the same CPV category and country.
 Uses Isolation Forest — an unsupervised ML algorithm that learns what
