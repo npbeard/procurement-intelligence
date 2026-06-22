@@ -52,9 +52,10 @@ dbt_env["DATABRICKS_HTTP_PATH"] = dbt_env.get(
 if os.path.exists(os.path.join(tmp_dir, "packages.yml")):
     subprocess.run(["dbt", "deps", "--profiles-dir", tmp_dir], env=dbt_env, check=False)
 
-# Run silver models (capture output so errors surface in job logs)
+# Run bronze views → silver tables → gold tables/views in one shot.
+# +gold means "gold and all its ancestors", so bronze and silver rebuild too.
 result = subprocess.run(
-    ["dbt", "run", "--select", "+silver", "--profiles-dir", tmp_dir],
+    ["dbt", "run", "--select", "+gold", "--profiles-dir", tmp_dir],
     capture_output=True, text=True, env=dbt_env,
 )
 
@@ -62,4 +63,4 @@ if result.returncode != 0:
     out_tail = (result.stdout + "\n" + result.stderr)[-3000:]
     raise RuntimeError(f"dbt run failed (exit {result.returncode}):\n{out_tail}")
 
-print("dbt silver models completed successfully.")
+print("dbt bronze → silver → gold completed successfully.")
