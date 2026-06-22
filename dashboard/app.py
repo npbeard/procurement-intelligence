@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dashboard.pages import (
+from dashboard.page_modules import (
     executive_overview,
     opportunity_radar,
     buyer_intelligence,
@@ -35,12 +35,11 @@ st.markdown("""
     * {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     }
-    
-    html, body, [class*="css"] {
-        background-color: #FFFFFF !important;
-        color: #111111 !important;
+
+    [data-testid="stIconMaterial"] {
+        font-family: 'Material Symbols Rounded' !important;
     }
-    
+
     .main {
         padding-top: 1.5rem;
         padding-bottom: 2rem;
@@ -62,7 +61,7 @@ st.markdown("""
     }
     
     h1, h2, h3 {
-        color: #111111 !important;
+        color: inherit !important;
         font-weight: 700 !important;
         letter-spacing: -0.5px;
         display: block !important;
@@ -86,23 +85,25 @@ st.markdown("""
     
     .dashboard-title {
         margin: 0;
-        color: #111111 !important;
+        color: inherit !important;
         font-size: 2rem !important;
         font-weight: 800 !important;
         line-height: 1.2;
     }
-    
+
     .eyebrow {
         margin: 0 0 0.2rem 0;
-        color: #6B7280 !important;
+        color: inherit !important;
+        opacity: 0.65;
         text-transform: uppercase;
         letter-spacing: 0.18em;
         font-size: 0.75rem;
         font-weight: 700;
     }
-    
+
     .dashboard-subtitle {
-        color: #4B5563 !important;
+        color: inherit !important;
+        opacity: 0.8;
         font-size: 0.95rem;
         font-weight: 500;
     }
@@ -116,13 +117,13 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
     }
     
-    [data-testid="metricValue"] {
+    [data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
         color: #111111 !important;
         font-size: 2rem !important;
         font-weight: 700 !important;
     }
-    
-    [data-testid="metricLabel"] {
+
+    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {
         color: #4B5563 !important;
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -144,12 +145,12 @@ st.markdown("""
         transition: all 0.2s ease !important;
         font-size: 0.95rem !important;
     }
-    
+
     .stTabs [data-baseweb="tab-list"] button:hover {
         border-color: #111111 !important;
         color: #111111 !important;
     }
-    
+
     .stTabs [data-baseweb="tab"][aria-selected="true"] button {
         background-color: #F9FAFB !important;
         border-color: #111111 !important;
@@ -169,20 +170,19 @@ st.markdown("""
     }
     
     /* Subheader styling */
-    [data-testid="stSubheader"] {
-        color: #111111 !important;
+    [data-testid="stHeading"] {
+        color: inherit !important;
         font-weight: 700 !important;
     }
-    
-    /* Text styling */
-    p, span, label, div {
-        color: #111111 !important;
-    }
-    
+
     /* Input styling */
+    [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] * {
+        color: inherit !important;
+    }
+
     .stNumberInput input,
     .stSelectbox select,
-    .stMultiSelect:has(> div) {
+    [data-baseweb="select"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         color: #111111 !important;
@@ -200,49 +200,44 @@ st.markdown("""
         box-shadow: 0 0 0 1px #111111 !important;
     }
     
-    /* Info/Warning/Alert boxes */
+    /* Info/Warning/Alert boxes - keep a fixed light surface in both themes */
     [data-testid="stAlert"] {
         background-color: #F9FAFB !important;
         border-left: 4px solid #111111 !important;
         border-radius: 6px !important;
         color: #111111 !important;
     }
-    
-    [data-testid="stAlert"] p {
+
+    [data-testid="stAlert"] * {
         color: #111111 !important;
         font-weight: 500 !important;
     }
-    
-    /* Sidebar */
+
+    /* Sidebar - keeps a fixed light surface in both themes */
     [data-testid="stSidebar"] {
         background-color: #FFFFFF !important;
         border-right: 1px solid #E5E7EB !important;
     }
-    
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2 {
-        color: #111111 !important;
-    }
-    
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span {
+
+    [data-testid="stSidebar"] * {
         color: #111111 !important;
     }
     
     /* Links */
     a {
-        color: #111111 !important;
+        color: inherit !important;
         text-decoration: none !important;
     }
-    
+
     a:hover {
-        color: #4B5563 !important;
+        opacity: 0.7;
+        text-decoration: underline !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # Sidebar navigation
-st.sidebar.title("🏛️ Procurement Intelligence")
+st.sidebar.title("🏛️ Procurement Intelligence Dashboard")
 st.sidebar.markdown("---")
 
 pages = {

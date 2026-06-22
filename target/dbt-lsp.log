@@ -437,3 +437,108 @@ There are 2 unused configuration paths:
 14:13:34.089202 [info ]: Started scheduling
 14:13:34.089249 [info ]: Finished scheduling [  0.00s]
 14:13:34.091922 [info ]: Cached model count updated: 1 models (accurate)
+==================== 2026-06-20T19:54:01.655496Z | 00000000-0000-0000-0000-000000000000 ====================
+==================== 2026-06-20T19:54:01.660243Z | 975a7798-9ecd-4099-b185-9a185c726b3c ====================
+19:54:01.661914 [info ]: Starting dbt LSP server
+19:54:01.663798 [info ]: Connecting to LSP client on port 8000
+19:54:01.667666 [info ]: Successfully connected to LSP client
+19:54:01.667693 [info ]: Creating LSP service...
+19:54:01.766648 [info ]: Creating LSP server...
+19:54:01.766674 [info ]: Starting LSP server...
+19:57:50.938559 [info ]: Loading profiles.yml
+==================== 2026-06-21T19:25:29.490028Z | 00000000-0000-0000-0000-000000000000 ====================
+==================== 2026-06-21T19:25:29.490280Z | a86c31ee-85b5-4b37-8552-bef6ee061db8 ====================
+19:25:29.490321 [info ]: Starting dbt LSP server
+19:25:29.490354 [info ]: Connecting to LSP client on port 8000
+19:25:29.492194 [info ]: Successfully connected to LSP client
+19:25:29.492223 [info ]: Creating LSP service...
+19:25:29.563464 [info ]: Creating LSP server...
+19:25:29.563486 [info ]: Starting LSP server...
+19:26:17.109937 [info ]: Loading profiles.yml
+==================== 2026-06-22T16:15:43.373021Z | 00000000-0000-0000-0000-000000000000 ====================
+==================== 2026-06-22T16:15:43.373238Z | ef31710a-0b60-4f55-bd62-ae5b71849f29 ====================
+16:15:43.373273 [info ]: Starting dbt LSP server
+16:15:43.373303 [info ]: Connecting to LSP client on port 8000
+16:15:43.374941 [info ]: Successfully connected to LSP client
+16:15:43.374961 [info ]: Creating LSP service...
+16:15:43.468747 [info ]: Creating LSP server...
+16:15:43.468771 [info ]: Starting LSP server...
+16:15:43.652287 [info ]: Loading profiles.yml
+16:15:53.101905 [info ]: Started loading project
+16:15:53.102556 [info ]: Loading profiles.yml
+16:15:53.148760 [warn ]: [FmtError (dbt1041)]: Old format package-lock.yml file found. Please provide package definitions.
+16:15:53.152173 [info ]: Loading packages.yml
+16:15:53.152759 [debug]:    Started loading packages
+16:15:53.152934 [debug]:     Failed [  0.00s] packages (error: Operation cancelled)
+16:15:53.153190 [info ]: Finished loading project [  0.05s]
+16:15:53.153488 [info ]: Waiting for lease on 'target' directory
+16:15:53.702592 [info ]: Started loading project
+16:15:53.703191 [info ]: Loading profiles.yml
+16:15:53.708074 [warn ]: [FmtError (dbt1041)]: Old format package-lock.yml file found. Please provide package definitions.
+16:15:53.708266 [info ]: Loading packages.yml
+16:15:53.708485 [debug]:    Started loading packages
+16:15:53.875871 [debug]:     Loaded [  0.17s] packages
+16:15:53.882683 [info ]: Started parsing
+16:15:57.040414 [info ]: Finished loading project [  3.34s]
+16:15:57.058196 [debug]: Finished parsing models\sources.yaml [  0.01s]
+16:15:57.090620 [debug]: Finished parsing models\silver\stg_notices.sql [  0.01s]
+16:15:57.092931 [warn ]: [UnusedResourceConfigPath (dbt1097)]: Configuration paths exist in your dbt_project.yml file which do not apply to any resources.
+There are 2 unused configuration paths:
+- models.ted_intelligence.gold
+- models.ted_intelligence.staging
+16:15:57.097874 [info ]: DOWNLOADING deferral manifest
+16:15:57.097933 [info ]: Finished parsing [  3.22s]
+16:15:57.687278 [warn ]: [HttpError (dbt1203)]: Failed to download deferral manifest from the dbt platform for project 70506183131529, continuing without deferral. 404 Not Found: No deferral environment defined for project with ID 70506183131529 To target a specific environment, set `defer-env-id` in your dbt_project.yml under the `dbt-cloud` block.
+16:15:57.687626 [info ]: Cached model count updated: 1 models (estimate)
+16:15:57.687635 [info ]: Cached model count updated: 1 models (accurate)
+16:15:57.687700 [info ]: Started scheduling
+16:15:57.689328 [info ]: Finished scheduling [  0.00s]
+16:15:57.689425 [debug]: Compilation - 1 nodes selected: {"model.ted_intelligence.stg_notices"}
+16:15:57.689472 [info ]: Started scheduling
+16:15:57.689512 [info ]: Finished scheduling [  0.00s]
+16:15:57.689589 [debug]: Initializing schema store with entry: Frontier(CanonicalFqn { catalog: "samples", schema: "ted_intelligence", table: "notices" }) and interval: None
+16:15:57.696720 [debug]: License loaded from file C:\Users\LENOVO\.dbt\license.70506183131397
+16:15:57.795623 [info ]: Started building task graph
+16:15:57.795756 [info ]: Finished building task graph [  0.00s]
+16:15:57.798894 [info ]: Started rendering (1 nodes)
+16:15:57.798940 [info ]: Started model ted_intelligence.stg_notices
+16:15:57.798960 [debug]: Started rendering model ted_intelligence.stg_notices
+16:15:57.801102 [debug]: Compiled SQL for node model.ted_intelligence.stg_notices at target\.lsp\compiled\ted_intelligence\models\silver\stg_notices.sql
+16:15:57.801247 [debug]: Finished rendering [  0.00s] model ted_intelligence.stg_notices [success]
+16:15:57.801271 [info ]: Finished rendering [  0.00s] (1 nodes, 0 skipped, 0 errors)
+16:15:57.801301 [info ]: Started analyzing (1 nodes)
+16:15:57.801312 [debug]: Started analyzing model ted_intelligence.stg_notices
+16:15:57.814710 [debug]: Finished analyzing [  0.01s] model ted_intelligence.stg_notices [success]
+16:15:57.814739 [info ]: Finished analyzing [  0.01s] (1 nodes, 0 skipped, 0 errors)
+16:15:57.814747 [info ]:  Succeeded [  0.01s] model ted_intelligence.stg_notices (view)
+16:15:57.822010 [info ]: Started scheduling
+16:15:57.822059 [info ]: Finished scheduling [  0.00s]
+16:15:57.823039 [info ]: Cached model count updated: 1 models (accurate)
+16:15:59.478289 [info ]: Started loading project
+16:15:59.478819 [info ]: Loading profiles.yml
+16:15:59.528002 [info ]: Cached model count updated: 1 models (estimate)
+16:15:59.528028 [info ]: Cached model count updated: 1 models (accurate)
+16:15:59.528054 [info ]: Started scheduling
+16:15:59.528104 [info ]: Finished scheduling [  0.00s]
+16:15:59.528122 [debug]: Compilation - 2 nodes selected: {"model.ted_intelligence.stg_notices", "seed.ted_intelligence.cpv_codes"}
+16:15:59.616466 [info ]: Started building task graph
+16:15:59.616519 [info ]: Finished building task graph [  0.00s]
+16:15:59.616560 [info ]: Finished loading project [  0.14s]
+16:15:59.624302 [info ]: Started rendering (2 nodes)
+16:15:59.624508 [info ]: Started seed ted_intelligence.cpv_codes
+16:15:59.624531 [debug]: Started rendering seed ted_intelligence.cpv_codes
+16:15:59.624556 [info ]: Started model ted_intelligence.stg_notices
+16:15:59.624567 [debug]: Started rendering model ted_intelligence.stg_notices
+16:15:59.624615 [debug]: Finished rendering [  0.00s] seed ted_intelligence.cpv_codes [success]
+16:15:59.624638 [info ]:  Succeeded [-------] seed  ted_intelligence.cpv_codes (table)
+16:15:59.625923 [debug]: Compiled SQL for node model.ted_intelligence.stg_notices at target\.lsp\compiled\ted_intelligence\models\silver\stg_notices.sql
+16:15:59.626014 [debug]: Finished rendering [  0.00s] model ted_intelligence.stg_notices [success]
+16:15:59.626029 [info ]: Finished rendering [  0.00s] (2 nodes, 0 skipped, 0 errors)
+16:15:59.626043 [info ]: Started analyzing (1 nodes)
+16:15:59.626053 [debug]: Started analyzing model ted_intelligence.stg_notices
+16:15:59.626238 [debug]: Finished analyzing [  0.00s] model ted_intelligence.stg_notices [success]
+16:15:59.626249 [info ]: Finished analyzing [  0.00s] (1 nodes, 0 skipped, 0 errors)
+16:15:59.626256 [info ]:  Succeeded [  0.00s] model ted_intelligence.stg_notices (view)
+16:15:59.633363 [info ]: Started scheduling
+16:15:59.633408 [info ]: Finished scheduling [  0.00s]
+16:15:59.634897 [info ]: Cached model count updated: 1 models (accurate)
