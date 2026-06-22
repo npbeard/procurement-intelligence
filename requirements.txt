@@ -4,3 +4,9 @@ pandas
 scikit-learn
 plotly
 streamlit
+xgboost
+lightgbm
+numpy
+matplotlib
+seaborn
+joblib
