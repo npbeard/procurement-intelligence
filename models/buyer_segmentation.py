@@ -1,6 +1,7 @@
 """
 Model 2 — IT Buyer Segmentation
 
+
 Clusters public sector IT buyers into behavioral segments based on
 their procurement history. Helps Microsoft identify which buyers to target
 and how to approach them.
