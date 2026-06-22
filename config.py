@@ -13,9 +13,9 @@ os.environ.setdefault("DATABRICKS_SERVERLESS_COMPUTE_ID", "auto")
 # os.environ.setdefault("DATABRICKS_CLUSTER_ID", "0101-xxxxxx-xxxxxxxx")
 
 # --- Paths --------------------------------------------------------------------
-CATALOG = "procurement"
+CATALOG = "capstone"
 SCHEMA  = "ted"
-VOLUME  = "raw"
+VOLUME  = "bronze"
 
 # ORIGIN: raw XML in the Volume (the ONLY thing that lives in a volume)
 RAW_XML_VOLUME = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}"
