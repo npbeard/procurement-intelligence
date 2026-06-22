@@ -1,6 +1,8 @@
 """
 Opportunity Radar Page — Which tenders should we prioritize?
-Pulls real CN lots from silver; scores from gold once ML is wired.
+Reads from gold_it_lots (IT-filtered CN lots, pre-built by dbt daily).
+opportunity_score column populates automatically once Bojana's XGBoost
+model writes to capstone.ted.gold_opportunity_scores.
 """
 
 import streamlit as st
@@ -10,7 +12,6 @@ from dashboard import db
 
 _BLUE   = "#1F5CE6"
 _PURPLE = "#7B52D4"
-_ORANGE = "#FF832B"
 
 _LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -19,41 +20,16 @@ _LAYOUT = dict(
     margin=dict(l=0, r=0, t=30, b=0),
 )
 
-# IT-relevant CPV divisions (72=IT services, 48=software, 30=office/computing)
-_IT_DIVISIONS = {"72", "48", "30"}
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def _load_cn_lots() -> pd.DataFrame:
-    return db.query("""
-        SELECT
-            notice_publication_id,
-            lot_id,
-            COALESCE(lot_name, 'Unnamed lot')   AS title,
-            buyer_country_code                  AS country,
-            buyer_name,
-            cpv_code,
-            cpv_name,
-            cpv_division,
-            procurement_type                    AS type,
-            lot_value_eur,
-            submission_deadline_date            AS deadline
-        FROM capstone.ted.silver_lots_enriched
-        WHERE notice_type = 'ContractNotice'
-        ORDER BY lot_value_eur DESC NULLS LAST
-        LIMIT 500
-    """)
-
 
 def render():
-    df = _load_cn_lots()
+    df = db.it_lots(limit=500)
 
-    # ── Sidebar-style filters (rendered inline) ─────────────────────────────
-    col1, col2, col3, col4 = st.columns(4)
+    # ── Filters ──────────────────────────────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        min_val = st.number_input("Min Value (€)", 0, 100_000_000, 0, step=100_000,
-                                  format="%d")
+        min_val = st.number_input("Min Value (€)", 0, 100_000_000, 0,
+                                  step=100_000, format="%d")
     with col2:
         countries = ["All"] + sorted(df["country"].dropna().unique().tolist())
         country   = st.selectbox("Country", countries)
@@ -61,9 +37,6 @@ def render():
     with col3:
         types     = ["All"] + sorted(df["type"].dropna().unique().tolist())
         proc_type = st.selectbox("Procurement Type", types)
-
-    with col4:
-        it_only = st.checkbox("IT-relevant only (CPV 72/48/30)", value=False)
 
     # ── Apply filters ────────────────────────────────────────────────────────
     mask = pd.Series(True, index=df.index)
@@ -73,29 +46,41 @@ def render():
         mask &= df["country"] == country
     if proc_type != "All":
         mask &= df["type"] == proc_type
-    if it_only:
-        mask &= df["cpv_division"].isin(_IT_DIVISIONS)
 
     filtered = df[mask].copy()
-    st.caption(f"{len(filtered):,} lots match current filters")
+    st.caption(f"{len(filtered):,} IT-relevant lots match current filters")
 
     st.markdown("")
 
     # ── Opportunity table ────────────────────────────────────────────────────
-    st.subheader("Matching Opportunities")
+    st.subheader("IT Opportunities")
+
+    has_ml_score = filtered["opportunity_score"].notna().any()
+    score_col    = "opportunity_score" if has_ml_score else "value_proxy_score"
+    score_label  = "ML Score" if has_ml_score else "Value Score (proxy)"
 
     display = filtered[["title", "country", "lot_value_eur",
-                         "type", "cpv_name", "deadline"]].copy()
+                         "type", "cpv_name", "deadline", score_col]].copy()
     display["lot_value_eur"] = display["lot_value_eur"].apply(
         lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"
     )
-    display.columns = ["Title", "Country", "Value", "Type", "CPV", "Deadline"]
-    st.dataframe(display.head(50), use_container_width=True, hide_index=True)
+    display.columns = ["Title", "Country", "Value", "Type", "CPV",
+                       "Deadline", score_label]
 
-    st.info(
-        "**Priority Score** column will appear here once Bojana's ML model "
-        "is connected (reads from `capstone.ted.gold_opportunity_scores`)."
-    )
+    col_config = {
+        score_label: st.column_config.ProgressColumn(
+            score_label, min_value=0, max_value=10,
+        )
+    }
+    st.dataframe(display.head(50), use_container_width=True,
+                 hide_index=True, column_config=col_config)
+
+    if not has_ml_score:
+        st.info(
+            "Showing **value proxy score** (log-scaled lot value). "
+            "Bojana's ML competition/attractiveness score will replace this "
+            "once `capstone.ted.gold_opportunity_scores` is written."
+        )
 
     st.markdown("")
 
