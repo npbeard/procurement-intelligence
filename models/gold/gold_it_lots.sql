@@ -39,6 +39,9 @@ select
     buyer_country_code,
     buyer_org_ref,
 
+    -- Competition feature (key input for Bojana's XGBoost model)
+    nb_tenders_received,
+
     -- Simple log-scaled value proxy (0–10) until the ML score is wired in.
     -- ln(50M) ≈ 17.7 so a €50M contract → score 10; €100K → ~4.7; null → null.
     case
