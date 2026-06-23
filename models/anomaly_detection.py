@@ -128,12 +128,20 @@ def run_anomaly_detection(spark=None) -> pd.DataFrame:
     print(f"\nDetected {n_anomalies} anomalies ({n_anomalies/len(df)*100:.1f}% of IT lots)")
     print(df["anomaly_direction"].value_counts().to_string())
 
+    # Single-bidder flag — strong low-competition signal for Microsoft
+    if "nb_tenders_received" in df.columns:
+        df["is_single_bidder"] = df["nb_tenders_received"] == 1
+        n_single = df["is_single_bidder"].sum()
+        print(f"\nSingle-bidder contracts: {n_single} ({n_single/len(df)*100:.1f}% of IT lots)")
+    else:
+        df["is_single_bidder"] = False
+
     output_cols = [
         "notice_publication_id", "lot_id", "lot_name",
         "buyer_country_code", "cpv_division", "cpv_name",
         "buyer_name", "procurement_procedure",
         "value_eur", "market_median", "value_to_median_ratio",
-        "is_anomaly", "anomaly_direction",
+        "is_anomaly", "anomaly_direction", "is_single_bidder",
     ]
     return df[[c for c in output_cols if c in df.columns]]
 
