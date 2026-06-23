@@ -1,120 +1,84 @@
 """
-Supplier & Awards Page
-Who is winning?
+Supplier & Awards Page — Who is winning?
+Powered by real silver tables via dashboard.db.
 """
 
 import streamlit as st
-import pandas as pd
 import plotly.express as px
+from dashboard import db
+
+_BLUE   = "#1F5CE6"
+_PURPLE = "#7B52D4"
+_ORANGE = "#FF832B"
+_PALETTE = [_BLUE, _PURPLE, _ORANGE, "#24A148", "#E63946", "#457B9D"]
+
+_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter", color="#374151", size=11),
+    margin=dict(l=0, r=0, t=30, b=0),
+    showlegend=False,
+)
+
 
 def render():
-    st.markdown("---")
-    
-    # Award overview
+    s = db.can_summary()
+    winners = db.top_winners(limit=15)
+
+    # ── Metrics ─────────────────────────────────────────────────────────────
     col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Awards", "2", help="Completed procurements with winners")
-    
-    with col2:
-        st.metric("Unique Winners", "2", help="Number of winning organizations")
-    
-    with col3:
-        st.metric("Total Award Value", "€1.2M", help="Sum of awarded contracts")
-    
-    with col4:
-        st.metric("Avg Award Value", "€600K", help="Mean contract value awarded")
-    
-    st.markdown("---")
-    
-    # Award criteria analysis
-    st.subheader("Award Criteria Breakdown")
-    
-    criteria = pd.DataFrame({
-        "Notice ID": ["TED-2026-001", "TED-2026-001"],
-        "Lot ID": ["LOT-001", "LOT-001"],
-        "Criteria Type": ["price", "quality"],
-        "Description": ["Lowest price", "Technical quality"],
-        "Weight": [None, 50.0]
-    })
-    
-    st.dataframe(criteria, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Award winners (organizations with awards)
-    st.subheader("Award Winners")
-    
-    winners = pd.DataFrame({
-        "Rank": [1, 2],
-        "Organization": ["City of Example", "State Agency"],
-        "Awards": [1, 1],
-        "Total Award Value (€)": [600000, 600000],
-        "Avg Award Value (€)": [600000, 600000],
-        "Win Rate": ["100%", "100%"]
-    })
-    
-    st.dataframe(winners, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Charts
+    col1.metric("Total Awards",    int(s["awards"] or 0),
+                help="Contract award notices (CAN)")
+    col2.metric("Unique Winners",  int(winners.shape[0]),
+                help="Distinct winning organisations")
+    col3.metric("Total Awarded",   f"€{s['total_awarded_m'] or 0:.0f}M")
+    col4.metric("Avg Award",       f"€{s['avg_award_k'] or 0:.0f}K")
+
+    st.markdown("")
+
+    # ── Winners table ────────────────────────────────────────────────────────
+    st.subheader("Top Award Winners")
+    display = winners.copy()
+    display.columns = ["Organization", "Country", "Awards", "Won (€M)", "Avg (€K)"]
+    display.insert(0, "Rank", range(1, len(display) + 1))
+    st.dataframe(display, use_container_width=True, hide_index=True)
+
+    st.markdown("")
+
+    # ── Charts ───────────────────────────────────────────────────────────────
     col1, col2 = st.columns(2)
-    
+
     with col1:
-        st.subheader("Awards by Lot")
-        lots = pd.DataFrame({
-            "Lot": ["LOT-001", "Unawarded"],
-            "Count": [2, 0]
-        })
-        fig = px.pie(lots, values="Count", names="Lot", title="Award Distribution")
+        st.subheader("Award value by winner")
+        df = winners.head(10)
+        fig = px.bar(df, x="total_won_m", y="tenderer_name", orientation="h",
+                     color_discrete_sequence=[_BLUE])
+        fig.update_layout(**_LAYOUT, height=380,
+                          xaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                                     title="€M won"),
+                          yaxis=dict(showgrid=False, title="",
+                                     autorange="reversed"))
         st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
-        st.subheader("Award Value Distribution")
-        fig = px.box(
-            pd.DataFrame({
-                "Value": [600000, 600000],
-                "Lot": ["LOT-001", "LOT-001"]
-            }),
-            y="Value",
-            title="Award Value Range by Lot"
-        )
+        st.subheader("Winners by country")
+        by_country = (winners.groupby("tenderer_country_code", dropna=False)
+                             .agg(awards=("awards", "sum"))
+                             .reset_index()
+                             .rename(columns={"tenderer_country_code": "country"})
+                             .sort_values("awards", ascending=False)
+                             .head(12))
+        fig = px.bar(by_country, x="awards", y="country", orientation="h",
+                     color_discrete_sequence=[_PURPLE])
+        fig.update_layout(**_LAYOUT, height=380,
+                          xaxis=dict(gridcolor="#E5E7EB", showgrid=True, title=""),
+                          yaxis=dict(showgrid=False, title="",
+                                     autorange="reversed"))
         st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Award criteria analysis
-    st.subheader("Winning Criteria Analysis")
-    
-    tab1, tab2, tab3 = st.tabs(["Price", "Quality", "Other"])
-    
-    with tab1:
-        st.info("""
-        **Price-Based Awards**
-        - Total: 1
-        - Avg Price Weight: Not specified (lowest wins)
-        """)
-    
-    with tab2:
-        st.info("""
-        **Quality-Based Awards**
-        - Total: 1
-        - Avg Quality Weight: 50%
-        - Quality criteria valued at 50% of decision
-        """)
-    
-    with tab3:
-        st.info("""
-        **Other Criteria**
-        - No other weighted criteria found
-        """)
-    
-    st.markdown("---")
-    
-    st.info("""
-    **Key Insights:**
-    - Most tenders use mixed award criteria (price + quality)
-    - Average quality weight: 50% when specified
-    - Geographic concentration: Mostly local/regional winners
-    """)
+
+    st.markdown("")
+
+    st.subheader("Largest awarded contracts")
+    df = db.largest_can_lots(limit=10)
+    df.columns = ["Title", "Country", "Awarded", "Winner", "CPV"]
+    st.dataframe(df, use_container_width=True, hide_index=True)
