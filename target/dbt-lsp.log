@@ -542,3 +542,11 @@ There are 2 unused configuration paths:
 16:15:59.633363 [info ]: Started scheduling
 16:15:59.633408 [info ]: Finished scheduling [  0.00s]
 16:15:59.634897 [info ]: Cached model count updated: 1 models (accurate)
+==================== 2026-06-23T14:48:11.856295Z | 00000000-0000-0000-0000-000000000000 ====================
+==================== 2026-06-23T14:48:11.869124Z | 14074023-57fd-4a49-a8bd-6ab5038baea5 ====================
+14:48:11.870080 [info ]: Starting dbt LSP server
+14:48:11.871287 [info ]: Connecting to LSP client on port 8000
+14:48:11.877879 [info ]: Successfully connected to LSP client
+14:48:11.878128 [info ]: Creating LSP service...
+14:48:12.041323 [info ]: Creating LSP server...
+14:48:12.041359 [info ]: Starting LSP server...

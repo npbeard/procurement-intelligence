@@ -84,7 +84,7 @@ def _render_opportunities():
             textposition="inside",
             textfont=dict(family="Inter", color="#FFFFFF", size=12),
         ))
-        fig.update_layout(**_LAYOUT, height=340, showlegend=True,
+        fig.update_layout(**{**_LAYOUT, "showlegend": True}, height=340,
                           legend=dict(font=dict(color="#374151")))
         st.plotly_chart(fig, use_container_width=True)
 

@@ -51,7 +51,7 @@ def render():
     with col1:
         st.subheader("Award value by winner")
         df = winners.head(10)
-        fig = px.bar(df, x="total_won_m", y="tenderer_name", orientation="h",
+        fig = px.bar(df, x="total_won_m", y="organization", orientation="h",
                      color_discrete_sequence=[_BLUE])
         fig.update_layout(**_LAYOUT, height=380,
                           xaxis=dict(gridcolor="#E5E7EB", showgrid=True,
@@ -62,10 +62,9 @@ def render():
 
     with col2:
         st.subheader("Winners by country")
-        by_country = (winners.groupby("tenderer_country_code", dropna=False)
+        by_country = (winners.groupby("country", dropna=False)
                              .agg(awards=("awards", "sum"))
                              .reset_index()
-                             .rename(columns={"tenderer_country_code": "country"})
                              .sort_values("awards", ascending=False)
                              .head(12))
         fig = px.bar(by_country, x="awards", y="country", orientation="h",
