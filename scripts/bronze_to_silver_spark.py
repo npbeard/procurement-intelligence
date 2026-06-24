@@ -154,9 +154,13 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
         tender_ref = _text(lr, "./efac:LotTender/cbc:ID")
         if lot_ref and tender_ref:
             lot_tender[lot_ref] = tender_ref
-        nb = _num(lr, "./efbc:ReceivedTendersQuantity")
-        if lot_ref and nb is not None:
-            lot_nb_tenders[lot_ref] = int(nb)
+        # efbc:ReceivedTendersQuantity is not used in practice; the actual
+        # field is efac:ReceivedSubmissionsStatistics with code "tenders".
+        for stats in lr.findall("./efac:ReceivedSubmissionsStatistics", NS):
+            if _text(stats, "./efbc:StatisticsCode") == "tenders":
+                nb = _num(stats, "./efbc:StatisticsNumeric")
+                if lot_ref and nb is not None:
+                    lot_nb_tenders[lot_ref] = int(nb)
 
     tender_tpa: dict[str, str] = {}
     for lt in root.findall(".//efac:NoticeResult/efac:LotTender", NS):
