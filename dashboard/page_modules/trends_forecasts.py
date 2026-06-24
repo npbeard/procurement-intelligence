@@ -6,21 +6,14 @@ Uses real daily notice volume from silver tables.
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-from dashboard import db
-
-_BLUE   = "#1F5CE6"
-_PURPLE = "#7B52D4"
-
-_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter", color="#374151", size=11),
-    margin=dict(l=0, r=0, t=30, b=0),
-)
+from dashboard import db, ui
 
 
 def render():
+    dark = ui.is_dark()
+    theme = ui.chart_theme(dark)
+    colors, grid, layout = theme["colors"], theme["grid"], theme["layout"]
+
     df = db.notice_volume_by_date()
 
     if df.empty:
@@ -50,20 +43,21 @@ def render():
     days  = int((df_filtered["issue_date"].max() - df_filtered["issue_date"].min()).days) + 1
     avg   = round(total / max(days, 1), 1)
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Notices in period", f"{total:,}")
-    c2.metric("Peak day",          f"{peak:,}")
-    c3.metric("Daily average",     f"{avg:.1f}")
+    ui.render_kpis([
+        ("Notices in period", f"{total:,}", None),
+        ("Peak day", f"{peak:,}", None),
+        ("Daily average", f"{avg:.1f}", None),
+    ])
 
     st.markdown("")
 
     # ── Daily volume chart ───────────────────────────────────────────────────
     st.subheader("Daily notice volume")
     fig = px.bar(df_filtered, x="issue_date", y="notices",
-                 color_discrete_sequence=[_BLUE])
-    fig.update_layout(**_LAYOUT, height=340,
-                      xaxis=dict(gridcolor="#E5E7EB", showgrid=False, title=""),
-                      yaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                 color_discrete_sequence=[colors[0]])
+    fig.update_layout(**layout, height=340,
+                      xaxis=dict(gridcolor=grid, showgrid=False, title=""),
+                      yaxis=dict(gridcolor=grid, showgrid=True,
                                  title="notices / day"))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -72,10 +66,10 @@ def render():
     df_filtered = df_filtered.copy()
     df_filtered["cumulative"] = df_filtered["notices"].cumsum()
     fig = px.line(df_filtered, x="issue_date", y="cumulative",
-                  color_discrete_sequence=[_PURPLE])
-    fig.update_layout(**_LAYOUT, height=300,
-                      xaxis=dict(gridcolor="#E5E7EB", showgrid=False, title=""),
-                      yaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                  color_discrete_sequence=[colors[1]])
+    fig.update_layout(**layout, height=300,
+                      xaxis=dict(gridcolor=grid, showgrid=False, title=""),
+                      yaxis=dict(gridcolor=grid, showgrid=True,
                                  title="cumulative notices"))
     st.plotly_chart(fig, use_container_width=True)
 

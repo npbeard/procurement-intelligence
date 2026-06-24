@@ -18,6 +18,7 @@ from dashboard.page_modules import (
     trends_forecasts,
     copilot
 )
+from dashboard import ui
 
 # Page configuration
 st.set_page_config(
@@ -26,6 +27,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+dark = ui.is_dark()
 
 # Custom CSS - Professional light theme matching design
 st.markdown("""
@@ -52,7 +55,7 @@ st.markdown("""
         padding-bottom: 3rem !important;
     }
     
-    .stApp > header {
+    [data-testid="stHeader"] {
         background: transparent !important;
     }
     
@@ -233,8 +236,169 @@ st.markdown("""
         opacity: 0.7;
         text-decoration: underline !important;
     }
+
+    /* "Powered by Microsoft" badge - adapts to either theme via inherit */
+    .ms-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        opacity: 0.7;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .ms-logo {
+        display: inline-grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    .ms-logo span {
+        width: 100%;
+        height: 100%;
+    }
+
+    .ms-text {
+        color: inherit;
+    }
+
+    /* Gradient KPI cards (dashboard.ui.kpi_card) - same vivid palette
+       in both themes */
+    .kpi-card {
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        color: #FFFFFF;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    }
+
+    .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .kpi-value {
+        font-size: 1.9rem;
+        font-weight: 800;
+        margin-top: 0.3rem;
+    }
     </style>
 """, unsafe_allow_html=True)
+
+if dark:
+    st.markdown("""
+        <style>
+        /* ---- Dark "vivid gradient" theme override ---- */
+
+        .main, .stApp {
+            background: #0F0E17 !important;
+        }
+
+        /* Header/toolbar text - explicit colors, not `inherit`. Streamlit's
+           own native text color can lag a rerun behind st.context.theme.type
+           right when the theme is toggled, which left this text dark-on-dark
+           during that transition. */
+        [data-testid="stHeader"] * ,
+        [data-testid="stToolbarActionButtonLabel"],
+        [data-testid="stToolbarActionButtonIcon"],
+        [data-testid="stHeaderActionElements"] * ,
+        [data-testid="stStatusWidget"] * {
+            color: #E5E7EB !important;
+        }
+
+        h1, h2, h3,
+        .dashboard-title,
+        .eyebrow,
+        .dashboard-subtitle,
+        [data-testid="stHeading"],
+        [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] * ,
+        a {
+            color: #E5E7EB !important;
+        }
+
+        .eyebrow {
+            opacity: 0.65;
+        }
+
+        .dashboard-subtitle {
+            opacity: 0.85;
+        }
+
+        .dashboard-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+
+        /* Card surfaces */
+        .stMetric,
+        [data-testid="dataFrameContainer"] {
+            background: #1A1825 !important;
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 16px !important;
+        }
+
+        [data-testid="stAlert"] {
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-left: 4px solid #A78BFA !important;
+        }
+
+        [data-testid="stAlert"] * {
+            color: #E5E7EB !important;
+        }
+
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            background: #15131F !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #E5E7EB !important;
+        }
+
+        [data-testid="stSidebar"] h1 {
+            color: #FFFFFF !important;
+        }
+
+        [data-testid="stSidebar"] label:has(input:checked) {
+            background: linear-gradient(135deg, rgba(198, 111, 242, 0.25), rgba(139, 92, 246, 0.25));
+            border-radius: 10px;
+        }
+
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] button {
+            background-color: #1A1825 !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            color: #C9D1D9 !important;
+        }
+
+        .stTabs [data-baseweb="tab-list"] button:hover {
+            border-color: #A78BFA !important;
+            color: #FFFFFF !important;
+        }
+
+        .stTabs [data-baseweb="tab"][aria-selected="true"] button {
+            background: linear-gradient(135deg, #C66FF2, #8B5CF6) !important;
+            border-color: transparent !important;
+            color: #FFFFFF !important;
+        }
+
+        /* Inputs */
+        .stNumberInput input,
+        .stSelectbox select,
+        [data-baseweb="select"] {
+            background-color: #1A1825 !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #E5E7EB !important;
+        }
+
+        </style>
+    """, unsafe_allow_html=True)
 
 # Sidebar navigation
 st.sidebar.title("🏛️ Procurement Intelligence Dashboard")
@@ -271,6 +435,7 @@ st.sidebar.info(
     **Last Updated:** Real-time
     """
 )
+st.sidebar.markdown(ui.ms_badge(), unsafe_allow_html=True)
 
 # Clean top dashboard header
 st.markdown(

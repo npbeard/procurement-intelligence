@@ -5,34 +5,25 @@ Powered by real silver tables via dashboard.db.
 
 import streamlit as st
 import plotly.express as px
-from dashboard import db
-
-_BLUE   = "#1F5CE6"
-_PURPLE = "#7B52D4"
-_ORANGE = "#FF832B"
-_PALETTE = [_BLUE, _PURPLE, _ORANGE, "#24A148", "#E63946", "#457B9D"]
-
-_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter", color="#374151", size=11),
-    margin=dict(l=0, r=0, t=30, b=0),
-    showlegend=False,
-)
+from dashboard import db, ui
 
 
 def render():
+    dark = ui.is_dark()
+    theme = ui.chart_theme(dark)
+    colors, grid, layout = theme["colors"], theme["grid"], theme["layout"]
+
     s = db.can_summary()
     winners = db.top_winners(limit=15)
 
     # ── Metrics ─────────────────────────────────────────────────────────────
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Awards",    int(s["awards"] or 0),
-                help="Contract award notices (CAN)")
-    col2.metric("Unique Winners",  int(winners.shape[0]),
-                help="Distinct winning organisations")
-    col3.metric("Total Awarded",   f"€{s['total_awarded_m'] or 0:.0f}M")
-    col4.metric("Avg Award",       f"€{s['avg_award_k'] or 0:.0f}K")
+    ui.render_kpis([
+        ("Total Awards", int(s["awards"] or 0), "Contract award notices (CAN)"),
+        ("Unique Winners", int(winners.shape[0]),
+         "Distinct winning organisations"),
+        ("Total Awarded", f"€{s['total_awarded_m'] or 0:.0f}M", None),
+        ("Avg Award", f"€{s['avg_award_k'] or 0:.0f}K", None),
+    ])
 
     st.markdown("")
 
@@ -52,9 +43,9 @@ def render():
         st.subheader("Award value by winner")
         df = winners.head(10)
         fig = px.bar(df, x="total_won_m", y="organization", orientation="h",
-                     color_discrete_sequence=[_BLUE])
-        fig.update_layout(**_LAYOUT, height=380,
-                          xaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                     color_discrete_sequence=[colors[0]])
+        fig.update_layout(**layout, height=380,
+                          xaxis=dict(gridcolor=grid, showgrid=True,
                                      title="€M won"),
                           yaxis=dict(showgrid=False, title="",
                                      autorange="reversed"))
@@ -68,9 +59,9 @@ def render():
                              .sort_values("awards", ascending=False)
                              .head(12))
         fig = px.bar(by_country, x="awards", y="country", orientation="h",
-                     color_discrete_sequence=[_PURPLE])
-        fig.update_layout(**_LAYOUT, height=380,
-                          xaxis=dict(gridcolor="#E5E7EB", showgrid=True, title=""),
+                     color_discrete_sequence=[colors[1]])
+        fig.update_layout(**layout, height=380,
+                          xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="",
                                      autorange="reversed"))
         st.plotly_chart(fig, use_container_width=True)

@@ -4,8 +4,7 @@ Can users ask anything naturally?
 """
 
 import streamlit as st
-import pandas as pd
-from datetime import datetime
+from dashboard import ui
 
 def render():
     st.markdown("---")
@@ -78,17 +77,14 @@ def render():
     # Conversation context
     st.subheader("📊 Current Dataset Context")
     
-    context_col1, context_col2, context_col3 = st.columns(3)
-    
-    with context_col1:
-        st.metric("Notices Indexed", "2")
-    
-    with context_col2:
-        st.metric("Lots Analyzed", "2")
-    
-    with context_col3:
-        st.metric("Organizations", "2")
-    
+    ui.render_kpis([
+        ("Notices Indexed", "2", None),
+        ("Lots Analyzed", "2", None),
+        ("Organizations", "2", None),
+    ])
+
+    st.markdown("")
+
     st.info("""
     **Copilot Capabilities:**
     - Natural language queries about market trends

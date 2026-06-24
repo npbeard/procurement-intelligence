@@ -8,20 +8,13 @@ model writes to capstone.ted.gold_opportunity_scores.
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from dashboard import db
-
-_BLUE   = "#1F5CE6"
-_PURPLE = "#7B52D4"
-
-_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter", color="#374151", size=11),
-    margin=dict(l=0, r=0, t=30, b=0),
-)
+from dashboard import db, ui
 
 
 def render():
+    theme = ui.chart_theme(ui.is_dark())
+    colors, grid, layout = theme["colors"], theme["grid"], theme["layout"]
+
     df = db.it_lots(limit=500)
 
     # ── Filters ──────────────────────────────────────────────────────────────
@@ -100,9 +93,9 @@ def render():
                                  .sort_values("total_m", ascending=False)
                                  .head(10))
             fig = px.bar(by_country, x="total_m", y="country", orientation="h",
-                         color_discrete_sequence=[_BLUE])
-            fig.update_layout(**_LAYOUT, height=350,
-                              xaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                         color_discrete_sequence=[colors[0]])
+            fig.update_layout(**layout, height=350,
+                              xaxis=dict(gridcolor=grid, showgrid=True,
                                          title="€M"),
                               yaxis=dict(showgrid=False, title="",
                                          autorange="reversed"))
@@ -118,9 +111,9 @@ def render():
                              .sort_values("total_m", ascending=False)
                              .head(10))
             fig = px.bar(by_cpv, x="total_m", y="cpv_division", orientation="h",
-                         color_discrete_sequence=[_PURPLE])
-            fig.update_layout(**_LAYOUT, height=350,
-                              xaxis=dict(gridcolor="#E5E7EB", showgrid=True,
+                         color_discrete_sequence=[colors[1]])
+            fig.update_layout(**layout, height=350,
+                              xaxis=dict(gridcolor=grid, showgrid=True,
                                          title="€M"),
                               yaxis=dict(showgrid=False, title="",
                                          autorange="reversed"))
