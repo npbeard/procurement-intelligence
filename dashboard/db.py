@@ -251,25 +251,25 @@ def largest_can_lots(limit: int = 10) -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def pin_monitor_lots() -> pd.DataFrame:
     """Prior Information Notices scored by the ML pipeline."""
-    return query(f"""
-        SELECT
-            notice_publication_id,
-            lot_id,
-            lot_name,
-            buyer_name,
-            buyer_country_code          AS country,
-            product_line,
-            issue_date,
-            ROUND(value_eur / 1e6, 2)   AS value_m,
-            ROUND(affinity_score, 3)    AS affinity_score,
-            ROUND(cpv_relevance, 3)     AS cpv_relevance,
-            days_since_pin,
-            priority,
-            ROUND(pin_ev / 1e6, 2)      AS pin_ev_m
+    df = query(f"""
+        SELECT *
         FROM {_S}.gold_pin_monitor
         ORDER BY priority DESC, pin_ev DESC NULLS LAST
         LIMIT 500
     """)
+    # Normalise column names so the page module has stable names regardless
+    # of the exact schema the ML pipeline wrote.
+    renames = {"buyer_country_code": "country"}
+    df = df.rename(columns=renames)
+    if "value_eur" in df.columns:
+        df["value_m"] = (df["value_eur"] / 1e6).round(2)
+    if "pin_ev" in df.columns:
+        df["pin_ev_m"] = (df["pin_ev"] / 1e6).round(2)
+    if "affinity_score" in df.columns:
+        df["affinity_score"] = df["affinity_score"].round(3)
+    if "cpv_relevance" in df.columns:
+        df["cpv_relevance"] = df["cpv_relevance"].round(3)
+    return df
 
 
 @st.cache_data(ttl=300, show_spinner=False)
