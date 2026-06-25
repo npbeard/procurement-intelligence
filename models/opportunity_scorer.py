@@ -53,9 +53,11 @@ OUTPUT_COLS = [
 
 LIVE_NOTICE_TYPES = {"ContractNotice", "PriorInformationNotice"}
 
-GOLD_OPPORTUNITIES_TABLE = "capstone.gold.opportunity_scores"
-GOLD_AFFINITY_TABLE      = "capstone.gold.buyer_affinity"
-GOLD_PIN_TABLE           = "capstone.gold.pin_monitor"
+GOLD_OPPORTUNITIES_TABLE = "capstone.ted.gold_opportunity_scores"
+GOLD_AFFINITY_TABLE      = "capstone.ted.gold_buyer_affinity"
+GOLD_PIN_TABLE           = "capstone.ted.gold_pin_monitor"
+
+DEFAULT_MODEL_PATH = "/tmp/capstone_win_probability.pkl"
 
 
 def run_opportunity_scoring(
