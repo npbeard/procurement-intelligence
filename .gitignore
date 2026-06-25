@@ -68,3 +68,4 @@ logs/
 .idea/
 *.suo
 *.user
+dbt_internal_packages/
