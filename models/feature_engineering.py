@@ -15,11 +15,12 @@ from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv())
 
-# IT-relevant CPV divisions
-IT_CPV_DIVISIONS = {"48", "72"}
+# IT-relevant CPV divisions (matches gold_it_lots.sql filter)
+IT_CPV_DIVISIONS = {"30", "48", "72"}
 
 # CPV division labels
 CPV_LABELS = {
+    "30": "Computing Equipment",
     "48": "Software",
     "72": "IT Services",
 }
@@ -40,7 +41,7 @@ def load_silver_lots(spark=None) -> pd.DataFrame:
 
     df = (
         spark.table("capstone.ted.silver_lots_enriched")
-        .filter("cpv_division IN ('48', '72')")
+        .filter("cpv_division IN ('30', '48', '72')")
         .toPandas()
     )
     return df
