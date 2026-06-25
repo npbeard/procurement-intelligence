@@ -99,6 +99,7 @@ def render():
                                          title="€M"),
                               yaxis=dict(showgrid=False, title="",
                                          autorange="reversed"))
+            fig.update_traces(hovertemplate=ui.hover_xy("Value (€M)", "Country"))
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
@@ -117,4 +118,5 @@ def render():
                                          title="€M"),
                               yaxis=dict(showgrid=False, title="",
                                          autorange="reversed"))
+            fig.update_traces(hovertemplate=ui.hover_xy("Value (€M)", "CPV Division"))
             st.plotly_chart(fig, use_container_width=True)

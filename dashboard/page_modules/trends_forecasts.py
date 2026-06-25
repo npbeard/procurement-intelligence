@@ -59,6 +59,7 @@ def render():
                       xaxis=dict(gridcolor=grid, showgrid=False, title=""),
                       yaxis=dict(gridcolor=grid, showgrid=True,
                                  title="notices / day"))
+    fig.update_traces(hovertemplate=ui.hover_xy("Date", "Notices"))
     st.plotly_chart(fig, use_container_width=True)
 
     # ── Cumulative volume ────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ def render():
                       xaxis=dict(gridcolor=grid, showgrid=False, title=""),
                       yaxis=dict(gridcolor=grid, showgrid=True,
                                  title="cumulative notices"))
+    fig.update_traces(hovertemplate=ui.hover_xy("Date", "Cumulative"))
     st.plotly_chart(fig, use_container_width=True)
 
     st.info(

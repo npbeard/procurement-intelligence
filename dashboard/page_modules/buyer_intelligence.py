@@ -51,6 +51,7 @@ def render():
         fig.update_layout(**layout, height=340,
                           xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="", autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Buyers", "Type"))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -61,6 +62,7 @@ def render():
         fig.update_layout(**layout, height=340,
                           xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="", autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Buyers", "Country"))
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("")

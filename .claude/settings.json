@@ -9,7 +9,11 @@
       "Bash(grep -v \"^20\\\\|missing ScriptRunContext\\\\|use_container_width\\\\|^$\\\\|^For \\\\`\")",
       "Bash(./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\inspect_kpi.py\")",
       "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app2.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app3.py\")"
+      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app3.py\")",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_hover.py\")",
+      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/ui.py', encoding='utf-8'\\).read\\(\\)\\)\")"
     ]
   }
 }
