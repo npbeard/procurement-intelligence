@@ -2,9 +2,8 @@
     config(materialized='table')
 }}
 -- IT-relevant open tenders (CPV divisions 72, 48, 30) for the Opportunity Radar.
--- One row per lot. The opportunity_score column is NULL until Bojana's XGBoost model
--- writes to capstone.ted.gold_opportunity_scores — at that point update this model to
--- join on (notice_publication_id, lot_id) and pull the score across.
+-- One row per lot, joined to Bojana's ML scores from gold_opportunity_scores.
+-- opportunity_score and predicted_competition are null until the ML pipeline has run.
 
 with it_lots as (
 
@@ -16,44 +15,46 @@ with it_lots as (
 )
 
 select
-    notice_publication_id,
-    lot_id,
-    lot_name,
-    description,
-    issue_date,
-    submission_deadline_date,
+    l.notice_publication_id,
+    l.lot_id,
+    l.lot_name,
+    l.description,
+    l.issue_date,
+    l.submission_deadline_date,
 
     -- Classification
-    cpv_code,
-    cpv_name,
-    cpv_division,
-    procurement_type,
-    procurement_procedure,
-    buyer_legal_type,
+    l.cpv_code,
+    l.cpv_name,
+    l.cpv_division,
+    l.procurement_type,
+    l.procurement_procedure,
+    l.buyer_legal_type,
 
     -- Value
-    lot_value_eur,
+    l.lot_value_eur,
 
     -- Buyer
-    buyer_name,
-    buyer_country_code,
-    buyer_org_ref,
+    l.buyer_name,
+    l.buyer_country_code,
+    l.buyer_org_ref,
 
-    -- Competition feature (key input for Bojana's XGBoost model)
-    nb_tenders_received,
+    -- Competition feature
+    l.nb_tenders_received,
 
-    -- Simple log-scaled value proxy (0–10) until the ML score is wired in.
-    -- ln(50M) ≈ 17.7 so a €50M contract → score 10; €100K → ~4.7; null → null.
+    -- Simple log-scaled value proxy (0–10); shown when ML score is absent.
     case
-        when lot_value_eur is null then null
+        when l.lot_value_eur is null then null
         else round(
-            least(ln(greatest(lot_value_eur, 1)) / ln(50000000) * 10, 10), 2
+            least(ln(greatest(l.lot_value_eur, 1)) / ln(50000000) * 10, 10), 2
         )
-    end                     as value_proxy_score,
+    end                         as value_proxy_score,
 
-    -- Placeholder: replaced by ML output table once available
-    cast(null as double)    as opportunity_score,
-    cast(null as string)    as predicted_competition
+    -- ML scores from Bojana's XGBoost pipeline (null until first ML run)
+    ml.expected_value           as opportunity_score,
+    ml.p_low_competition        as predicted_competition
 
-from it_lots
-order by lot_value_eur desc nulls last
+from it_lots l
+left join capstone.ted.gold_opportunity_scores ml
+    on  l.notice_publication_id = ml.notice_publication_id
+    and l.lot_id                = ml.lot_id
+order by coalesce(ml.expected_value, l.lot_value_eur) desc nulls last
