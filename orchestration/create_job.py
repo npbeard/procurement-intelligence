@@ -71,10 +71,19 @@ JOB_CONFIG: dict = {
         },
         {
             "task_key": "run_silver_dbt",
-            "description": "Build silver dbt models from bronze Delta tables.",
+            "description": "Build bronze → silver → gold dbt models.",
             "depends_on": [{"task_key": "parse_bronze"}],
             "notebook_task": {
                 "notebook_path": f"{REPO_PATH}/orchestration/dbt_runner",
+                "source": "WORKSPACE",
+            },
+        },
+        {
+            "task_key": "run_ml_scoring",
+            "description": "Score live IT tenders with XGBoost opportunity model → gold tables.",
+            "depends_on": [{"task_key": "run_silver_dbt"}],
+            "notebook_task": {
+                "notebook_path": f"{REPO_PATH}/orchestration/ml_runner",
                 "source": "WORKSPACE",
             },
         },
