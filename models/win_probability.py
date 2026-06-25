@@ -13,11 +13,20 @@ Specifically:
   - Combined with buyer affinity score and CPV-to-Microsoft relevance score
   - Final P(win) is a weighted blend of all three signals
 
+Model persistence:
+  - save_model() / load_model() use joblib to serialise model + label encoder
+  - Train once on historical data, then load daily for scoring new lots
+  - Default path: /dbfs/capstone/models/win_probability.pkl
+
 Output: P(win) ∈ [0, 1] per lot, used to compute Expected Value = value × P(win)
 """
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report
@@ -36,6 +45,8 @@ LABEL_ORDER = ["Low", "Medium", "High"]
 W_COMPETITION = 0.50  # P(low competition) from XGBoost
 W_AFFINITY    = 0.30  # buyer affinity to Microsoft portfolio
 W_RELEVANCE   = 0.20  # how well CPV maps to Microsoft products
+
+DEFAULT_MODEL_PATH = "/dbfs/capstone/models/win_probability.pkl"
 
 
 def _competition_label(n: int) -> str:
@@ -59,13 +70,13 @@ def _add_features(df: pd.DataFrame, buyer_affinity: pd.DataFrame) -> pd.DataFram
     )
     df["affinity_score"] = df["affinity_score"].fillna(0.3)
 
-    df["log_value"]          = np.log1p(df["value_eur"].fillna(0))
-    df["cpv_relevance"]      = df["cpv_code"].astype(str).apply(get_cpv_relevance)
-    df["cpv_division_enc"]   = pd.Categorical(df["cpv_division"]).codes
-    df["cpv_group_enc"]      = pd.Categorical(df["cpv_code"].astype(str).str[:3]).codes
-    df["country_enc"]        = pd.Categorical(df["buyer_country_code"].fillna("UNKNOWN")).codes
-    df["procedure_enc"]      = pd.Categorical(df["procurement_procedure"].fillna("UNKNOWN")).codes
-    df["buyer_type_enc"]     = pd.Categorical(df["buyer_legal_type"].fillna("UNKNOWN")).codes
+    df["log_value"]        = np.log1p(df["value_eur"].fillna(0))
+    df["cpv_relevance"]    = df["cpv_code"].astype(str).apply(get_cpv_relevance)
+    df["cpv_division_enc"] = pd.Categorical(df["cpv_division"]).codes
+    df["cpv_group_enc"]    = pd.Categorical(df["cpv_code"].astype(str).str[:3]).codes
+    df["country_enc"]      = pd.Categorical(df["buyer_country_code"].fillna("UNKNOWN")).codes
+    df["procedure_enc"]    = pd.Categorical(df["procurement_procedure"].fillna("UNKNOWN")).codes
+    df["buyer_type_enc"]   = pd.Categorical(df["buyer_legal_type"].fillna("UNKNOWN")).codes
 
     return df
 
@@ -82,13 +93,48 @@ FEATURE_COLS = [
 ]
 
 
+# ── Model persistence ─────────────────────────────────────────────────────────
+
+def save_model(
+    model: XGBClassifier,
+    le: LabelEncoder,
+    metrics: dict,
+    path: str = DEFAULT_MODEL_PATH,
+) -> None:
+    """Save trained model, label encoder, and metrics to disk."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"model": model, "le": le, "metrics": metrics}, path)
+    print(f"  Model saved → {path}")
+
+
+def load_model(path: str = DEFAULT_MODEL_PATH) -> tuple[XGBClassifier, LabelEncoder, dict] | None:
+    """
+    Load a previously saved model from disk.
+    Returns (model, le, metrics) or None if no saved model exists.
+    """
+    if not os.path.exists(path):
+        return None
+    payload = joblib.load(path)
+    print(f"  Model loaded ← {path}  (trained on {payload['metrics']['n_train']:,} samples, "
+          f"accuracy {payload['metrics']['accuracy']:.1%})")
+    return payload["model"], payload["le"], payload["metrics"]
+
+
+def model_exists(path: str = DEFAULT_MODEL_PATH) -> bool:
+    return os.path.exists(path)
+
+
+# ── Training ──────────────────────────────────────────────────────────────────
+
 def train_win_probability_model(
     df: pd.DataFrame,
     buyer_affinity: pd.DataFrame,
+    save_path: str = DEFAULT_MODEL_PATH,
 ) -> tuple[XGBClassifier, LabelEncoder, dict]:
     """
     Train XGBoost on historical award notices to predict competition level.
-    Returns model, label encoder, and evaluation metrics.
+    Automatically saves the model to save_path after training.
+    Returns (model, label_encoder, metrics).
     """
     df = _add_features(df, buyer_affinity)
 
@@ -132,9 +178,9 @@ def train_win_probability_model(
     )
     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
 
-    y_pred = model.predict(X_test)
+    y_pred   = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred, target_names=LABEL_ORDER)
+    report   = classification_report(y_test, y_pred, target_names=LABEL_ORDER)
 
     print(f"\n  Accuracy: {accuracy:.3f}")
     print(f"\n{report}")
@@ -143,13 +189,18 @@ def train_win_probability_model(
         {"feature": FEATURE_COLS, "importance": model.feature_importances_}
     ).sort_values("importance", ascending=False)
 
-    return model, le, {
-        "accuracy": accuracy,
-        "report": report,
+    metrics = {
+        "accuracy":           accuracy,
+        "report":             report,
         "feature_importance": importance,
-        "n_train": len(train_df),
+        "n_train":            len(train_df),
     }
 
+    save_model(model, le, metrics, path=save_path)
+    return model, le, metrics
+
+
+# ── Scoring (uses saved model, no retraining) ─────────────────────────────────
 
 def score_opportunities(
     df: pd.DataFrame,
@@ -158,7 +209,8 @@ def score_opportunities(
     buyer_affinity: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Score all lots with P(win) and Expected Value.
+    Score all lots with P(win) and Expected Value using a pre-trained model.
+    Call load_model() first to get model and le without retraining.
 
     P(win) = W_competition × P(low competition)
            + W_affinity    × affinity_score
@@ -168,7 +220,7 @@ def score_opportunities(
     """
     df = _add_features(df, buyer_affinity)
 
-    X = df[FEATURE_COLS].fillna(0)
+    X     = df[FEATURE_COLS].fillna(0)
     proba = model.predict_proba(X)
 
     low_idx = list(le.classes_).index("Low")
