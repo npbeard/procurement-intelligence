@@ -1,0 +1,97 @@
+version: 2
+sources:
+  - name: ted_raw
+    catalog: capstone
+    schema: ted
+    description: "Parsed TED eForms notices written by bronze_to_silver_spark.py."
+    tables:
+      - name: notices
+        description: "One row per published TED notice (the procurement publication)."
+        columns:
+          - name: notice_publication_id
+            description: "Primary key. Stable publication ID of the notice."
+            tests: [unique, not_null]
+          - name: notice_uuid
+            description: "UBL document ID (cbc:ID) of the notice."
+          - name: notice_type
+            description: "Root element local name (e.g. ContractNotice)."
+          - name: subtype_code
+            description: "eForms notice subtype code."
+          - name: issue_date
+            description: "Issue date of the notice (string, ISO-like)."
+          - name: publication_date
+            description: "Date the notice was published in the OJ S."
+          - name: gazette_id
+            description: "OJ S gazette identifier."
+          - name: language
+            description: "Notice language code."
+          - name: regulatory_domain
+            description: "Regulatory domain code."
+          - name: buyer_org_ref
+            description: "Org reference of the contracting party (-> organizations.org_ref)."
+          - name: estimated_value
+            description: "Estimated value of the notice before beign awarded to an organization"
+          - name: estimated_currency
+            description: "Currency of the estimated value"
+          - name: total_value
+            description: "Total value was the contract is awarded"
+          - name: total_currency
+            description: "Curreny of the total value"
+          - name: source_file
+            description: "Originating .xml filename for lineage."
+      - name: lots
+        description: "Procurement lots within a notice (1 notice : many lots)."
+        columns:
+          - name: notice_publication_id
+            description: "FK -> notices.notice_publication_id."
+            tests: [not_null]
+          - name: lot_id
+            description: "Lot identifier, unique within the notice."
+          - name: name
+            description: "Lot title."
+          - name: description
+            description: "Lot free-text description."
+          - name: procurement_type
+            description: "Procurement type code (works/supplies/services)."
+          - name: cpv_code
+            description: "Main CPV classification code for the lot."
+          - name: value
+            description: "Estimated overall contract amount for the lot."
+          - name: currency
+            description: "Currency of the lot's estimated value."
+          - name: status
+            description: "Tender result code for the lot (e.g. awarded, not awarded)."
+      - name: award_criteria
+        description: "Award criteria per lot (price/quality and weights)."
+        columns:
+          - name: notice_publication_id
+            description: "FK -> notices."
+          - name: lot_id
+            description: "FK -> lots.lot_id (within the same notice)."
+          - name: criterion_index
+            description: "0-based position of the criterion within the lot."
+          - name: criterion_type
+            description: "Awarding criterion type code."
+          - name: description
+            description: "Criterion description."
+          - name: weight
+            description: "Numeric weight of the criterion, if present."
+          - name: weight_type
+            description: "Weight parameter code (e.g. percentage)."
+      - name: organizations
+        description: "Organizations referenced by notices (buyers, bidders, etc.)."
+        columns:
+          - name: notice_publication_id
+            description: "FK -> notices."
+          - name: org_ref
+            description: "Organization reference id within the notice."
+          - name: name
+            description: "Legal/company name."
+          - name: city
+            description: "City of the postal address."
+          - name: country_code
+            description: "ISO country code of the organization."
+          - name: company_id
+            description: "Legal entity company identifier."
+          - name: website
+            description: "Organization website URI."

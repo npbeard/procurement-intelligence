@@ -1,0 +1,11 @@
+ted_intelligence:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      catalog: capstone
+      schema: ted
+      host: "{{ env_var('DATABRICKS_HOST') | replace('https://', '') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH', '/sql/1.0/warehouses/9d31ee3378c194b4') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      threads: 4

@@ -8,6 +8,7 @@ transcript*.txt
 .env
 .env.*
 *.env
+!.env.example
 secrets/
 credentials/
 *.pem
@@ -51,6 +52,11 @@ _delta_log/
 # Databricks
 .databricks/
 databricks.yml.local
+
+# dbt build artifacts
+dbt_packages/
+target/
+logs/
 
 # macOS
 .DS_Store
