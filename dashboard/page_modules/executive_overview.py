@@ -54,6 +54,7 @@ def _render_opportunities(dark: bool):
         fig.update_layout(**layout, height=380,
                           xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="", autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Notices", "Country"))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -65,6 +66,7 @@ def _render_opportunities(dark: bool):
         fig.update_layout(**layout, height=380,
                           xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="", autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Lots", "CPV Division"))
         st.plotly_chart(fig, use_container_width=True)
 
     col1, col2 = st.columns(2)
@@ -73,7 +75,7 @@ def _render_opportunities(dark: bool):
         st.subheader("Procurement type distribution")
         df = db.procurement_type_distribution()
         fig = go.Figure(go.Pie(
-            labels=df["type"], values=df["lots"],
+            labels=df["type"].str.capitalize(), values=df["lots"],
             hole=0.4,
             marker=dict(colors=colors),
             textposition="inside",
@@ -81,6 +83,7 @@ def _render_opportunities(dark: bool):
         ))
         fig.update_layout(**{**layout, "showlegend": True}, height=340,
                           legend=dict(font=dict(color=layout["font"]["color"])))
+        fig.update_traces(hovertemplate=ui.hover_pie("Type", "Lots"))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -118,6 +121,7 @@ def _render_awards(dark: bool):
                                      title="€M awarded"),
                           yaxis=dict(showgrid=False, title="",
                                      autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Awarded (€M)", "Country"))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:

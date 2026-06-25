@@ -49,6 +49,7 @@ def render():
                                      title="€M won"),
                           yaxis=dict(showgrid=False, title="",
                                      autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Won (€M)", "Organization"))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -64,6 +65,7 @@ def render():
                           xaxis=dict(gridcolor=grid, showgrid=True, title=""),
                           yaxis=dict(showgrid=False, title="",
                                      autorange="reversed"))
+        fig.update_traces(hovertemplate=ui.hover_xy("Awards", "Country"))
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("")

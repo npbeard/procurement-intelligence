@@ -46,6 +46,27 @@ def is_dark() -> bool:
     return st.context.theme.type == "dark"
 
 
+def hover_xy(x_label: str, y_label: str) -> str:
+    """Hovertemplate for a 2-field x/y bar or line trace, e.g. 'Notices =
+    80,688' instead of Plotly Express's default 'notices=80688'. Leaves
+    %{x}/%{y} unformatted so Plotly's own default value formatting
+    (number/date abbreviation, etc.) is unchanged - only the label text
+    and spacing differ from the Plotly Express default."""
+    return f"<b>{x_label}</b> = %{{x}}<br><b>{y_label}</b> = %{{y}}<extra></extra>"
+
+
+def hover_pie(label_name: str, value_name: str) -> str:
+    """Hovertemplate for a pie/donut trace, matching hover_xy's bold
+    'Label = value' convention. %{percent} keeps Plotly's built-in
+    percentage formatting; %{value} gets a thousands separator to match
+    Plotly's default (non-hovertemplate) pie hover rendering."""
+    return (
+        f"<b>{label_name}</b> = %{{label}}<br>"
+        f"<b>{value_name}</b> = %{{value:,}}<br>"
+        f"<b>Share</b> = %{{percent}}<extra></extra>"
+    )
+
+
 def chart_theme(dark: bool) -> dict:
     """Plotly layout/gridline/palette appropriate for the active theme."""
     return {
