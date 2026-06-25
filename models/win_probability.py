@@ -158,13 +158,19 @@ def train_win_probability_model(
     print(f"  Label distribution:\n{train_df['competition_label'].value_counts().to_string()}")
 
     le = LabelEncoder()
-    le.classes_ = np.array(LABEL_ORDER)
+    le.fit(LABEL_ORDER)
     y = le.transform(train_df["competition_label"])
     X = train_df[FEATURE_COLS].fillna(0)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    min_class_count = train_df["competition_label"].value_counts().min()
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y if min_class_count >= 2 else None
+        )
+    except ValueError:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
 
     model = XGBClassifier(
         n_estimators=300,

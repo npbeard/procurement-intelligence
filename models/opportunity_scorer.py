@@ -57,7 +57,6 @@ GOLD_OPPORTUNITIES_TABLE = "capstone.ted.gold_opportunity_scores"
 GOLD_AFFINITY_TABLE      = "capstone.ted.gold_buyer_affinity"
 GOLD_PIN_TABLE           = "capstone.ted.gold_pin_monitor"
 
-DEFAULT_MODEL_PATH = "/tmp/capstone_win_probability.pkl"
 
 
 def run_opportunity_scoring(
@@ -141,7 +140,7 @@ def run_opportunity_scoring(
             & (all_scored["value_eur"].notna())
             & (all_scored["value_eur"] > 0)
         ]
-        .drop_duplicates(subset=["notice_publication_id"])
+        .drop_duplicates(subset=["notice_publication_id", "lot_id"])
         .sort_values("expected_value", ascending=False)
         .reset_index(drop=True)
     )
@@ -154,7 +153,7 @@ def run_opportunity_scoring(
         (all_scored["notice_type"] == "PriorInformationNotice")
         & all_scored["value_eur"].notna()
         & (all_scored["value_eur"] > 0)
-    ].drop_duplicates(subset=["notice_publication_id"]).copy()
+    ].drop_duplicates(subset=["notice_publication_id", "lot_id"]).copy()
     pins["pin_ev"]         = pins["value_eur"] * (pins["affinity_score"] * 0.6 + pins["cpv_relevance"] * 0.4)
     pins["days_since_pin"] = (max_date - pins["issue_date"]).dt.days
     pins["priority"]       = (pins["affinity_score"] >= 0.6) & (pins["value_eur"] >= 500_000)
