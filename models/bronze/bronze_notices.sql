@@ -15,6 +15,8 @@ select
     language,
     regulatory_domain,
     buyer_org_ref,
+    buyer_legal_type,
+    procurement_procedure,
     estimated_value,
     estimated_currency,
     total_value,

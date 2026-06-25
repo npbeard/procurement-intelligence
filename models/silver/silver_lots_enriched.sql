@@ -85,7 +85,10 @@ select
     -- Winner (present only in CAN award notices)
     l.tenderer_org_ref,
     winner.name                         as tenderer_name,
-    winner.country_code                 as tenderer_country_code
+    winner.country_code                 as tenderer_country_code,
+
+    -- Competition intensity input for ML
+    l.nb_tenders_received
 
 from lots l
 left join notices n

@@ -25,6 +25,7 @@ import requests
 from databricks.sdk import WorkspaceClient
 
 import threading
+from datetime import datetime, timezone
 from tqdm.auto import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -99,6 +100,73 @@ def ingest_one(ojs_number, raw_volume, w, on_file=None, upload_workers=32):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def latest_ingested_edition(w: WorkspaceClient, raw_volume: str) -> tuple[int, int] | None:
+    """Highest (year, seq) among existing ojs= folders in the Volume, or None if empty."""
+    editions = []
+    for entry in w.files.list_directory_contents(raw_volume):
+        name = entry.path.rstrip("/").rsplit("/", 1)[-1]  # "ojs=202600001"
+        if name.startswith("ojs=") and name[4:].isdigit() and len(name) >= 10:
+            num = name[4:]
+            editions.append((int(num[:4]), int(num[4:])))
+    return max(editions) if editions else None
+
+
+def ingest_latest(raw_volume: str = config.RAW_XML_VOLUME,
+                   max_consecutive_misses: int = 10,
+                   hard_cap: int = 260,
+                   batch_size: int = 10) -> None:
+    """
+    Resume from the latest edition already in the Volume and ingest every
+    edition published since, up through today. Editions within a batch are
+    fetched concurrently. TED publishes on business days only, so a run of
+    `max_consecutive_misses` 404s (in submission order) is treated as
+    "caught up" rather than an error.
+    """
+    w = WorkspaceClient()
+    last = latest_ingested_edition(w, raw_volume)
+    today_year = datetime.now(timezone.utc).year
+
+    if last is None:
+        year, seq = today_year, 1
+    else:
+        year, seq = last
+        seq += 1
+        if year < today_year:
+            year, seq = today_year, 1  # roll over into the new year's numbering
+
+    consecutive_misses = 0
+    attempts = 0
+    ingested_editions = 0
+    ingested_notices = 0
+
+    while consecutive_misses < max_consecutive_misses and attempts < hard_cap:
+        batch = range(seq, seq + min(batch_size, hard_cap - attempts))
+        ojs_numbers = [f"{year}{s:05d}" for s in batch]
+
+        with ThreadPoolExecutor(max_workers=len(ojs_numbers)) as pool:
+            results = list(pool.map(
+                lambda o: ingest_one(o, raw_volume, w, upload_workers=8), ojs_numbers
+            ))
+
+        for ojs_number, status, n in results:
+            print(f"{ojs_number}: {status} ({n} notices)")
+            attempts += 1
+            if status == "missing":
+                consecutive_misses += 1
+            else:
+                consecutive_misses = 0
+                if status == "ingested":
+                    ingested_editions += 1
+                    ingested_notices += n
+            if consecutive_misses >= max_consecutive_misses:
+                break
+
+        seq += len(ojs_numbers)
+
+    print(f"\nDone. Ingested {ingested_editions} new edition(s), "
+          f"{ingested_notices} notices, into {raw_volume}.")
+
+
 def ingest_range(start: int, count: int, year: int,
                  raw_volume: str = config.RAW_XML_VOLUME,
                  parallelism: int = 8) -> None:
@@ -131,13 +199,21 @@ def ingest_range(start: int, count: int, year: int,
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Ingest TED daily packages into a Volume (RDD-free).")
-    p.add_argument("--year", type=int, required=True)
-    p.add_argument("--start", type=int, required=True)
+    p.add_argument("--latest", action="store_true",
+                   help="Resume from the latest edition in the Volume and catch up to today.")
+    p.add_argument("--year", type=int)
+    p.add_argument("--start", type=int)
     p.add_argument("--count", type=int, default=1)
     p.add_argument("--parallelism", type=int, default=8)
     p.add_argument("--raw-volume", default=config.RAW_XML_VOLUME)
     args = p.parse_args()
-    ingest_range(args.start, args.count, args.year, args.raw_volume, args.parallelism)
+
+    if args.latest:
+        ingest_latest(args.raw_volume)
+    else:
+        if args.year is None or args.start is None:
+            p.error("--year and --start are required unless --latest is set")
+        ingest_range(args.start, args.count, args.year, args.raw_volume, args.parallelism)
 
 
 if __name__ == "__main__":

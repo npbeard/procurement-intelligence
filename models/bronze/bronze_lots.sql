@@ -15,5 +15,7 @@ select
     to_timestamp(
         concat(substr( submission_deadline_date , 1, 10), 'T', submission_deadline_time ),
         "yyyy-MM-dd'T'HH:mm:ssXXX"
-    ) as submission_deadline_time
+    ) as submission_deadline_time,
+    tenderer_org_ref,
+    nb_tenders_received
 from {{ source('ted_raw', 'lots') }}
