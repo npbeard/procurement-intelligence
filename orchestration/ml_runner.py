@@ -32,7 +32,7 @@ print(f"repo_root: {repo_root}")
 # COMMAND ----------
 
 from pyspark.sql import SparkSession
-from models.opportunity_scorer import run_opportunity_scoring, DEFAULT_MODEL_PATH
+from ml_models.opportunity_scorer import run_opportunity_scoring, DEFAULT_MODEL_PATH
 
 spark = SparkSession.builder.getOrCreate()
 
