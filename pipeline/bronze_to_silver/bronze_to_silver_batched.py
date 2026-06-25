@@ -80,11 +80,15 @@ def parse_one(xml_path: Path) -> dict[str, list[dict]]:
 
     # Build lot -> tenderer org_ref lookup (only present in CAN award notices).
     lot_tender: dict[str, str] = {}
+    lot_nb_tenders: dict[str, int] = {}
     for lr in root.findall(".//efac:NoticeResult/efac:LotResult", NS):
         lot_ref = _text(lr, "./efac:TenderLot/cbc:ID")
         tender_ref = _text(lr, "./efac:LotTender/cbc:ID")
         if lot_ref and tender_ref:
             lot_tender[lot_ref] = tender_ref
+        nb = _num(lr, "./efbc:ReceivedTendersQuantity")
+        if lot_ref and nb is not None:
+            lot_nb_tenders[lot_ref] = int(nb)
 
     tender_tpa: dict[str, str] = {}
     for lt in root.findall(".//efac:NoticeResult/efac:LotTender", NS):
@@ -117,6 +121,7 @@ def parse_one(xml_path: Path) -> dict[str, list[dict]]:
                 lot, f"{project}/cac:MainCommodityClassification/cbc:ItemClassificationCode"
             ),
             "tenderer_org_ref": tpa_org.get(tpa_id) if tpa_id else None,
+            "nb_tenders_received": lot_nb_tenders.get(lot_id),
         })
         for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
             award_criteria.append({
@@ -173,6 +178,7 @@ SCHEMAS: dict[str, dict] = {
         "notice_publication_id": pl.Utf8, "lot_id": pl.Utf8, "name": pl.Utf8,
         "description": pl.Utf8, "procurement_type": pl.Utf8, "cpv_code": pl.Utf8,
         "tenderer_org_ref": pl.Utf8,
+        "nb_tenders_received": pl.Int64,
     },
     "award_criteria": {
         "notice_publication_id": pl.Utf8, "lot_id": pl.Utf8,

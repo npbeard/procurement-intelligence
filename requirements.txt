@@ -8,3 +8,9 @@ databricks-sql-connector
 pyarrow
 dbt-databricks
 lxml
+xgboost
+lightgbm
+numpy
+matplotlib
+seaborn
+joblib
