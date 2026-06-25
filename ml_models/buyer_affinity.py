@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from models.cpv_microsoft_mapping import get_cpv_product_line, get_cpv_relevance
+from ml_models.cpv_microsoft_mapping import get_cpv_product_line, get_cpv_relevance
 
 
 RECENCY_HALF_LIFE_DAYS = 180  # contracts older than 6 months decay in weight

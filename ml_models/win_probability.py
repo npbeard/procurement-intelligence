@@ -36,7 +36,7 @@ from xgboost import XGBClassifier
 import warnings
 warnings.filterwarnings("ignore")
 
-from models.cpv_microsoft_mapping import get_cpv_relevance
+from ml_models.cpv_microsoft_mapping import get_cpv_relevance
 
 
 LABEL_ORDER = ["Low", "Medium", "High"]
@@ -46,7 +46,7 @@ W_COMPETITION = 0.50  # P(low competition) from XGBoost
 W_AFFINITY    = 0.30  # buyer affinity to Microsoft portfolio
 W_RELEVANCE   = 0.20  # how well CPV maps to Microsoft products
 
-DEFAULT_MODEL_PATH = "/dbfs/capstone/models/win_probability.pkl"
+DEFAULT_MODEL_PATH = "/tmp/capstone_win_probability.pkl"
 
 
 def _competition_label(n: int) -> str:
