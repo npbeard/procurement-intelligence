@@ -254,7 +254,6 @@ def pin_monitor_lots() -> pd.DataFrame:
     df = query(f"""
         SELECT *
         FROM {_S}.gold_pin_monitor
-        ORDER BY priority DESC, pin_ev DESC NULLS LAST
         LIMIT 500
     """)
     # Normalise column names so the page module has stable names regardless
@@ -269,6 +268,10 @@ def pin_monitor_lots() -> pd.DataFrame:
         df["affinity_score"] = df["affinity_score"].round(3)
     if "cpv_relevance" in df.columns:
         df["cpv_relevance"] = df["cpv_relevance"].round(3)
+    # Sort: priority first (if present), then by expected value descending
+    sort_cols = [c for c in ["priority", "pin_ev_m"] if c in df.columns]
+    if sort_cols:
+        df = df.sort_values(sort_cols, ascending=[False] * len(sort_cols))
     return df
 
 
