@@ -28,10 +28,9 @@ pip-wheel-metadata/
 .mypy_cache/
 .ruff_cache/
 
-# Jupyter / Databricks notebooks — kept local only
+# Jupyter / Databricks notebooks
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-notebooks/*.ipynb
 
 # Virtual environments
 .venv/
