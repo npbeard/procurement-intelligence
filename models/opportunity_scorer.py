@@ -62,7 +62,7 @@ DEFAULT_MODEL_PATH = "/tmp/capstone_win_probability.pkl"
 
 def run_opportunity_scoring(
     spark=None,
-    days_lookback: int = 60,
+    days_lookback: int = 90,
     force_retrain: bool = False,
     model_path: str = DEFAULT_MODEL_PATH,
     write_gold: bool = True,
