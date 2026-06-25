@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from models.feature_engineering import load_it_lots
-from models.buyer_affinity import compute_buyer_affinity
-from models.cpv_microsoft_mapping import get_cpv_product_line
-from models.win_probability import (
+from ml_models.feature_engineering import load_it_lots
+from ml_models.buyer_affinity import compute_buyer_affinity
+from ml_models.cpv_microsoft_mapping import get_cpv_product_line
+from ml_models.win_probability import (
     DEFAULT_MODEL_PATH,
     load_model,
     model_exists,
@@ -61,7 +61,7 @@ GOLD_PIN_TABLE           = "capstone.ted.gold_pin_monitor"
 
 def run_opportunity_scoring(
     spark=None,
-    days_lookback: int = 60,
+    days_lookback: int = 90,
     force_retrain: bool = False,
     model_path: str = DEFAULT_MODEL_PATH,
     write_gold: bool = True,
