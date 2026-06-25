@@ -3,7 +3,9 @@ Procurement Intelligence Streamlit Dashboard
 Main app with 6 business case pages
 """
 
+import datetime
 import streamlit as st
+import pandas as pd
 import sys
 from pathlib import Path
 
@@ -16,9 +18,10 @@ from dashboard.page_modules import (
     buyer_intelligence,
     supplier_awards,
     trends_forecasts,
-    copilot
+    copilot,
+    pin_monitor,
 )
-from dashboard import ui
+from dashboard import db, ui
 
 # Page configuration
 st.set_page_config(
@@ -410,6 +413,7 @@ pages = {
     "👥 Buyer Intelligence": buyer_intelligence,
     "🏆 Supplier & Awards": supplier_awards,
     "📊 Trends & Forecasts": trends_forecasts,
+    "📌 PIN Monitor": pin_monitor,
     "🤖 Procurement Copilot": copilot,
 }
 
@@ -419,6 +423,7 @@ page_descriptions = {
     "👥 Buyer Intelligence": "Understand who is buying and how they procure.",
     "🏆 Supplier & Awards": "See who is winning and how awards are distributed.",
     "📊 Trends & Forecasts": "Track changing demand and forecast future signals.",
+    "📌 PIN Monitor": "Early pipeline signals — build relationships before tenders open.",
     "🤖 Procurement Copilot": "Ask natural-language questions about the data.",
 }
 
@@ -452,6 +457,29 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ML pipeline status banner — shows if the last scoring run failed or is stale
+try:
+    status_df = db.pipeline_status()
+    if not status_df.empty:
+        last = status_df.iloc[0]
+        if str(last.get("status", "")) == "FAILED":
+            st.warning(
+                f"ML pipeline last run **FAILED** at {last.get('run_time', 'unknown')}. "
+                f"Opportunity scores and PIN data may be outdated. "
+                f"Error: {str(last.get('message', ''))[:200]}"
+            )
+        else:
+            run_time = pd.to_datetime(last.get("run_time"), errors="coerce")
+            if pd.notna(run_time):
+                hours_ago = (datetime.datetime.utcnow() - run_time.replace(tzinfo=None)).total_seconds() / 3600
+                if hours_ago > 48:
+                    st.warning(
+                        f"ML scores are **{hours_ago:.0f} hours old** — last successful run at "
+                        f"{last.get('run_time')}. The pipeline may not have run recently."
+                    )
+except Exception:
+    pass
 
 # Load and display selected page
 pages[selected_page].render()

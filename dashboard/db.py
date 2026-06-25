@@ -245,6 +245,48 @@ def largest_can_lots(limit: int = 10) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# PIN Monitor — from gold_pin_monitor (ML pipeline output)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=300, show_spinner=False)
+def pin_monitor_lots() -> pd.DataFrame:
+    """Prior Information Notices scored by the ML pipeline."""
+    return query(f"""
+        SELECT
+            notice_publication_id,
+            lot_id,
+            lot_name,
+            buyer_name,
+            buyer_country_code          AS country,
+            product_line,
+            issue_date,
+            ROUND(value_eur / 1e6, 2)   AS value_m,
+            ROUND(affinity_score, 3)    AS affinity_score,
+            ROUND(cpv_relevance, 3)     AS cpv_relevance,
+            days_since_pin,
+            priority,
+            ROUND(pin_ev / 1e6, 2)      AS pin_ev_m
+        FROM {_S}.gold_pin_monitor
+        ORDER BY priority DESC, pin_ev DESC NULLS LAST
+        LIMIT 500
+    """)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def pipeline_status() -> pd.DataFrame:
+    """Last run record from the pipeline status table, or empty df if absent."""
+    try:
+        return query(f"""
+            SELECT task, status, message, run_time
+            FROM {_S}.pipeline_status
+            ORDER BY run_time DESC
+            LIMIT 5
+        """)
+    except Exception:
+        return pd.DataFrame()
+
+
+# ---------------------------------------------------------------------------
 # Buyer breakdowns — still from silver (buyer aggregations not in gold yet)
 # ---------------------------------------------------------------------------
 
