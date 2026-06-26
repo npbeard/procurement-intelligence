@@ -16,7 +16,8 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/ui.py', encoding='utf-8'\\).read\\(\\)\\)\")",
       "Bash(timeout 25 ./.venv/Scripts/python.exe -c ' *)",
       "Bash(awk -F= '{print $1\": \"length\\($2\\)\" chars\"}' .env)",
-      "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)"
+      "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(git merge *)"
     ]
   }
 }
