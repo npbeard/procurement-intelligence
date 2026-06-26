@@ -13,8 +13,13 @@ reports is real gold-layer data, not invented.
 from __future__ import annotations
 
 import json
+import logging
+
+from openai import BadRequestError
 
 from chatbot import llm, tools
+
+logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 5
 
@@ -60,13 +65,26 @@ def answer(history: list[dict]) -> dict:
     tools_used: list[str] = []
 
     for _ in range(MAX_TOOL_ROUNDS):
-        resp = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=tools.TOOLS,
-            tool_choice="auto",
-            temperature=0.2,
-        )
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=tools.TOOLS,
+                tool_choice="auto",
+                temperature=0.2,
+            )
+        except BadRequestError as exc:
+            # Groq rejects when the model generates a tool call with a wrong
+            # argument type (e.g. limit as "10" instead of 10). Retry without
+            # tools so the model gives a plain answer rather than crashing.
+            logger.warning("Tool-call validation rejected by API (%s); retrying without tools.", exc)
+            fallback = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.2,
+            )
+            return {"content": fallback.choices[0].message.content or "", "tools_used": tools_used}
+
         msg = resp.choices[0].message
 
         if not msg.tool_calls:

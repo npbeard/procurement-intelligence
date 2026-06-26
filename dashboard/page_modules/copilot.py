@@ -1,9 +1,10 @@
 """
 Procurement Copilot Page — natural-language Q&A over the gold layer.
 
-A Streamlit-native chat that sends the user's question to Llama (served by
-Databricks Foundation Model APIs) with tool access to the gold-layer queries in
-`dashboard.db`. Every figure in an answer comes from a real gold-table query.
+A Streamlit-native chat that sends the user's question to an LLM (Groq by
+default, or Databricks Foundation Model APIs) with tool access to the gold-layer
+queries in `dashboard.db`. Every figure in an answer comes from a real
+gold-table query.
 """
 
 import streamlit as st
@@ -31,9 +32,9 @@ def render():
     if not ready:
         st.warning(
             f"⚠️ The Copilot model isn't configured yet: **{reason}**\n\n"
-            "It reuses your Databricks credentials. Make sure `DATABRICKS_HOST` and "
-            "`DATABRICKS_TOKEN` are set (same as the dashboard) and `openai` is installed. "
-            "Optionally set `DATABRICKS_LLM_ENDPOINT` to your workspace's Llama serving endpoint."
+            "By default the Copilot uses Groq (free). Set `GROQ_API_KEY` in your `.env` "
+            "or deployment secrets and install the `openai` package (`pip install openai`). "
+            "To use Databricks Foundation Model APIs instead, set `CHATBOT_PROVIDER=databricks`."
         )
 
     st.markdown("---")
