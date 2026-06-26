@@ -181,7 +181,14 @@ def dispatch(name: str, args: dict) -> str:
         elif name == "procurement_type_breakdown":
             result = _records(db.procurement_type_distribution())
         elif name == "it_opportunities":
-            result = _records(db.it_lots(_clamp(args.get("limit"), 10)))
+            limit = _clamp(args.get("limit"), 10)
+            df = db.it_lots(min(limit * 4, 200))  # fetch extra so dedup still yields `limit` rows
+            if not df.empty:
+                score_col = "opportunity_score" if df["opportunity_score"].notna().any() else "value_proxy_score"
+                df = (df.sort_values(score_col, ascending=False, na_position="last")
+                        .drop_duplicates(subset=["title", "buyer_name"])
+                        .head(limit))
+            result = _records(df)
         elif name == "largest_lots":
             limit = _clamp(args.get("limit"), 10)
             if args.get("notice_type") == "CAN":
