@@ -17,7 +17,15 @@
       "Bash(timeout 25 ./.venv/Scripts/python.exe -c ' *)",
       "Bash(awk -F= '{print $1\": \"length\\($2\\)\" chars\"}' .env)",
       "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(./.venv/Scripts/python.exe -c \"import openai\")",
+      "Bash(./.venv/Scripts/python.exe -m pip install openai)",
+      "Bash(./.venv/Scripts/python.exe -c \"from openai import BadRequestError, RateLimitError; print\\('OK'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(python -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\)\")"
     ]
   }
 }

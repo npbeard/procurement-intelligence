@@ -3,12 +3,23 @@ Procurement Intelligence Streamlit Dashboard
 Main app with 6 business case pages
 """
 
+import os
 import streamlit as st
 import sys
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Make deployment secrets available as env vars BEFORE importing any module that
+# reads them at import time (e.g. dashboard.db). On Streamlit Community Cloud the
+# credentials come from st.secrets; locally they come from .env (loaded later by
+# db.py / config.py). setdefault means a local .env never gets clobbered.
+try:
+    for _key, _val in st.secrets.items():
+        os.environ.setdefault(_key, str(_val))
+except Exception:
+    pass  # no secrets.toml (normal for local dev) — .env will be used instead
 
 from dashboard.page_modules import (
     executive_overview,
