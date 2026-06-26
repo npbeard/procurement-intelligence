@@ -46,7 +46,7 @@ W_COMPETITION = 0.50  # P(low competition) from XGBoost
 W_AFFINITY    = 0.30  # buyer affinity to Microsoft portfolio
 W_RELEVANCE   = 0.20  # how well CPV maps to Microsoft products
 
-DEFAULT_MODEL_PATH = "/tmp/capstone_win_probability.pkl"
+DEFAULT_MODEL_PATH = "/Volumes/capstone/ted/models/win_probability.pkl"
 
 
 def _competition_label(n: int) -> str:
@@ -102,7 +102,10 @@ def save_model(
     path: str = DEFAULT_MODEL_PATH,
 ) -> None:
     """Save trained model, label encoder, and metrics to disk."""
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass  # Unity Catalog Volumes don't support mkdir; the volume must pre-exist
     joblib.dump({"model": model, "le": le, "metrics": metrics}, path)
     print(f"  Model saved → {path}")
 

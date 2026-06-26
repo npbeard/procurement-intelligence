@@ -63,6 +63,10 @@ def _write_status(task: str, status: str, message: str):
 
 # COMMAND ----------
 
+# Ensure the Unity Catalog Volume exists before saving the model.
+# DBFS root is disabled in this workspace; Volumes are the correct storage layer.
+spark.sql("CREATE VOLUME IF NOT EXISTS capstone.ted.models")
+
 status = "FAILED"
 message = "Unknown error before scoring started."
 
