@@ -16,7 +16,9 @@
       "Bash(./.venv/Scripts/python.exe -c ' *)",
       "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)"
     ]
   }
 }
