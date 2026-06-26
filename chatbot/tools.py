@@ -39,7 +39,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "How many buyers (default 10, max 50)."}
+                    "limit": {"type": "string", "description": "How many buyers (default 10, max 50)."}
                 },
             },
         },
@@ -52,7 +52,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "How many suppliers (default 10, max 50)."}
+                    "limit": {"type": "string", "description": "How many suppliers (default 10, max 50)."}
                 },
             },
         },
@@ -70,7 +70,7 @@ TOOLS = [
                         "enum": ["notices", "award_value"],
                         "description": "Rank by notice volume or by awarded value. Default 'notices'.",
                     },
-                    "limit": {"type": "integer", "description": "How many countries (default 10)."},
+                    "limit": {"type": "string", "description": "How many countries (default 10)."},
                 },
             },
         },
@@ -86,7 +86,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "How many sectors (default 10)."}
+                    "limit": {"type": "string", "description": "How many sectors (default 10)."}
                 },
             },
         },
@@ -112,7 +112,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "How many opportunities (default 10, max 50)."}
+                    "limit": {"type": "string", "description": "How many opportunities (default 10, max 50)."}
                 },
             },
         },
@@ -130,7 +130,7 @@ TOOLS = [
                         "enum": ["CN", "CAN"],
                         "description": "CN = open tenders, CAN = awarded contracts. Default 'CN'.",
                     },
-                    "limit": {"type": "integer", "description": "How many lots (default 10)."},
+                    "limit": {"type": "string", "description": "How many lots (default 10)."},
                 },
             },
         },
