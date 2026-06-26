@@ -169,9 +169,9 @@ def run_opportunity_scoring(
     # ── Step 5 (optional): Write Gold tables ──────────────────
     if write_gold and spark is not None:
         print("\n[5/5] Writing Gold Delta tables...")
-        spark.createDataFrame(opportunities).write.mode("overwrite").saveAsTable(GOLD_OPPORTUNITIES_TABLE)
-        spark.createDataFrame(buyer_affinity).write.mode("overwrite").saveAsTable(GOLD_AFFINITY_TABLE)
-        spark.createDataFrame(pins).write.mode("overwrite").saveAsTable(GOLD_PIN_TABLE)
+        spark.createDataFrame(opportunities).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(GOLD_OPPORTUNITIES_TABLE)
+        spark.createDataFrame(buyer_affinity).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(GOLD_AFFINITY_TABLE)
+        spark.createDataFrame(pins).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(GOLD_PIN_TABLE)
         print(f"  Written: {GOLD_OPPORTUNITIES_TABLE}")
         print(f"  Written: {GOLD_AFFINITY_TABLE}")
         print(f"  Written: {GOLD_PIN_TABLE}")
