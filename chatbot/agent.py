@@ -15,7 +15,9 @@ from __future__ import annotations
 import json
 import logging
 
-from openai import BadRequestError
+import re
+
+from openai import BadRequestError, RateLimitError
 
 from chatbot import llm, tools
 
@@ -47,9 +49,15 @@ RULES
 """
 
 
-def _to_message_dicts(history: list[dict]) -> list[dict]:
-    """Keep only role/content from the UI history (drop any UI-only fields)."""
-    return [{"role": m["role"], "content": m["content"]} for m in history]
+def _to_message_dicts(history: list[dict], max_turns: int = 6) -> list[dict]:
+    """Keep only role/content from the UI history; cap to last `max_turns` pairs to bound token usage."""
+    trimmed = history[-(max_turns * 2):]
+    return [{"role": m["role"], "content": m["content"]} for m in trimmed]
+
+
+def _retry_hint(exc: RateLimitError) -> str:
+    m = re.search(r"try again in ([^\s,]+)", str(exc), re.IGNORECASE)
+    return f" Try again in {m.group(1)}." if m else ""
 
 
 def answer(history: list[dict]) -> dict:
@@ -73,6 +81,16 @@ def answer(history: list[dict]) -> dict:
                 tool_choice="auto",
                 temperature=0.2,
             )
+        except RateLimitError as exc:
+            hint = _retry_hint(exc)
+            return {
+                "content": (
+                    f"⏳ **Daily token limit reached on the free Groq tier.**{hint}\n\n"
+                    "The limit resets every 24 hours. If this keeps happening, "
+                    "ask the platform admin to upgrade to the Groq Dev tier."
+                ),
+                "tools_used": tools_used,
+            }
         except BadRequestError as exc:
             # Groq rejects when the model generates a tool call with a wrong
             # argument type (e.g. limit as "10" instead of 10). Retry without
