@@ -49,11 +49,16 @@ def render():
     st.subheader("IT Opportunities")
 
     has_ml_score = filtered["opportunity_score"].notna().any()
-    score_col    = "opportunity_score" if has_ml_score else "value_proxy_score"
     score_label  = "ML Score" if has_ml_score else "Value Score (proxy)"
 
+    # Per-row fallback: use the real ML score where it exists, otherwise the
+    # value proxy - avoids blank cells for lots Bojana's model hasn't scored.
+    filtered["display_score"] = filtered["opportunity_score"].combine_first(
+        filtered["value_proxy_score"]
+    )
+
     display = filtered[["title", "country", "lot_value_eur",
-                         "type", "cpv_name", "deadline", score_col]].copy()
+                         "type", "cpv_name", "deadline", "display_score"]].copy()
     display["lot_value_eur"] = display["lot_value_eur"].apply(
         lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"
     )
@@ -62,7 +67,7 @@ def render():
 
     col_config = {
         score_label: st.column_config.ProgressColumn(
-            score_label, min_value=0, max_value=10,
+            score_label, min_value=0, max_value=10, format="%.1f",
         )
     }
     st.dataframe(display.head(50), use_container_width=True,
@@ -73,6 +78,12 @@ def render():
             "Showing **value proxy score** (log-scaled lot value). "
             "Bojana's ML competition/attractiveness score will replace this "
             "once `capstone.ted.gold_opportunity_scores` is written."
+        )
+    else:
+        scored_pct = filtered["opportunity_score"].notna().mean()
+        st.caption(
+            f"{scored_pct:.0%} of these lots have a real ML score; the rest "
+            "show a value-based proxy score until Bojana's model covers them."
         )
 
     st.markdown("")

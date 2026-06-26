@@ -201,6 +201,7 @@ def it_lots(limit: int = 500) -> pd.DataFrame:
             predicted_competition
         FROM {_S}.gold_it_lots
         ORDER BY
+            opportunity_score IS NULL,
             COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
         LIMIT {limit}
     """)
