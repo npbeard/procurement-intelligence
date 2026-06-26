@@ -8,3 +8,4 @@ databricks-sql-connector
 pyarrow
 dbt-databricks
 lxml
+openai
