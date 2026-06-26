@@ -52,13 +52,33 @@ def render():
     score_col    = "opportunity_score" if has_ml_score else "value_proxy_score"
     score_label  = "ML Score" if has_ml_score else "Value Score (proxy)"
 
-    display = filtered[["title", "country", "lot_value_eur",
-                         "type", "cpv_name", "deadline", score_col]].copy()
+    display_cols  = ["title", "country", "lot_value_eur", "type", "cpv_name", "deadline", score_col]
+    display_names = ["Title", "Country", "Value", "Type", "CPV", "Deadline", score_label]
+
+    # predicted_competition arrives as a raw probability (0–1); bucket it for display
+    has_competition = (
+        "predicted_competition" in filtered.columns
+        and filtered["predicted_competition"].notna().any()
+    )
+    if has_competition:
+        def _comp_label(v):
+            if pd.isna(v): return "—"
+            return "Low" if v < 0.4 else ("Medium" if v < 0.7 else "High")
+        filtered = filtered.copy()
+        filtered["competition"] = filtered["predicted_competition"].map(_comp_label)
+        display_cols.append("competition")
+        display_names.append("Competition")
+
+    display = filtered[display_cols].copy()
+
+    # opportunity_score is raw expected value (€); percentile-rank to 0–10 for the progress bar
+    if has_ml_score:
+        display[score_col] = (filtered[score_col].rank(pct=True) * 10).round(1)
+
     display["lot_value_eur"] = display["lot_value_eur"].apply(
         lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"
     )
-    display.columns = ["Title", "Country", "Value", "Type", "CPV",
-                       "Deadline", score_label]
+    display.columns = display_names
 
     col_config = {
         score_label: st.column_config.ProgressColumn(

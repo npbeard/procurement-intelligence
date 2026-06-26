@@ -14,3 +14,4 @@ numpy
 matplotlib
 seaborn
 joblib
+openai
