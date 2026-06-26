@@ -23,6 +23,13 @@ from chatbot import llm, tools
 
 logger = logging.getLogger(__name__)
 
+_FUNCTION_TAG_RE = re.compile(r"<function[^>]*>.*?</function>", re.DOTALL | re.IGNORECASE)
+
+
+def _clean(text: str) -> str:
+    """Strip residual <function>…</function> XML artifacts Llama sometimes emits."""
+    return _FUNCTION_TAG_RE.sub("", text).strip()
+
 MAX_TOOL_ROUNDS = 5
 
 SYSTEM_PROMPT = """\
@@ -101,12 +108,19 @@ def answer(history: list[dict]) -> dict:
                 messages=messages,
                 temperature=0.2,
             )
-            return {"content": fallback.choices[0].message.content or "", "tools_used": tools_used}
+            return {"content": _clean(fallback.choices[0].message.content or ""), "tools_used": tools_used}
 
         msg = resp.choices[0].message
 
         if not msg.tool_calls:
-            return {"content": msg.content or "", "tools_used": tools_used}
+            content = _clean(msg.content or "")
+            if not content:
+                # Model returned only function-tag noise — ask it to try again in plain text.
+                logger.warning("Model returned empty/artifact content; requesting plain-text retry.")
+                messages.append({"role": "user", "content": "Please summarise the results in plain text now."})
+                retry = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
+                content = _clean(retry.choices[0].message.content or "")
+            return {"content": content, "tools_used": tools_used}
 
         # Echo the assistant's tool-call request, then append each tool result.
         messages.append(
@@ -138,4 +152,4 @@ def answer(history: list[dict]) -> dict:
         {"role": "user", "content": "Please give your best final answer now using the data already gathered."}
     )
     final = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
-    return {"content": final.choices[0].message.content or "", "tools_used": tools_used}
+    return {"content": _clean(final.choices[0].message.content or ""), "tools_used": tools_used}
