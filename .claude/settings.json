@@ -9,7 +9,14 @@
       "Bash(grep -v \"^20\\\\|missing ScriptRunContext\\\\|use_container_width\\\\|^$\\\\|^For \\\\`\")",
       "Bash(./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\inspect_kpi.py\")",
       "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app2.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app3.py\")"
+      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app3.py\")",
+      "Bash(./.venv/Scripts/python.exe -c \"import openai\")",
+      "Bash(./.venv/Scripts/python.exe -m pip install openai)",
+      "Bash(./.venv/Scripts/python.exe -c \"from openai import BadRequestError, RateLimitError; print\\('OK'\\)\")",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
