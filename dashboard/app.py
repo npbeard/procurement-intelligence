@@ -422,7 +422,7 @@ pages = {
     "🎯 Opportunity Radar": opportunity_radar,
     "👥 Buyer Intelligence": buyer_intelligence,
     "🏆 Supplier & Awards": supplier_awards,
-    "📊 Trends & Forecasts": trends_forecasts,
+    "📊 Trends": trends_forecasts,
     "📌 PIN Monitor": pin_monitor,
     "🤖 Procurement Copilot": copilot,
 }
@@ -432,7 +432,7 @@ page_descriptions = {
     "🎯 Opportunity Radar": "Prioritize tenders by value, urgency, and fit.",
     "👥 Buyer Intelligence": "Understand who is buying and how they procure.",
     "🏆 Supplier & Awards": "See who is winning and how awards are distributed.",
-    "📊 Trends & Forecasts": "Track changing demand and forecast future signals.",
+    "📊 Trends": "Track how notice volume and procurement activity are changing over time.",
     "📌 PIN Monitor": "Early pipeline signals — build relationships before tenders open.",
     "🤖 Procurement Copilot": "Ask natural-language questions about the data.",
 }

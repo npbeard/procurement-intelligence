@@ -1,5 +1,5 @@
 """
-Trends & Forecasts Page — What is changing?
+Trends Page — What is changing?
 Uses real daily notice volume from silver tables.
 """
 
