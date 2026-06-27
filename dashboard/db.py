@@ -252,8 +252,18 @@ def largest_can_lots(limit: int = 10) -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def pin_monitor_lots() -> pd.DataFrame:
     """Prior Information Notices scored by the ML pipeline."""
+    # Explicit column list avoids Delta schema-mismatch errors when the table
+    # was rewritten and a stale column (e.g. 'status') lingers in the metadata.
     df = query(f"""
-        SELECT *
+        SELECT
+            notice_publication_id, lot_id, lot_name, description,
+            notice_type, issue_date, buyer_name, buyer_org_ref,
+            buyer_country_code, buyer_legal_type,
+            lot_value_eur, pin_ev, value_eur,
+            submission_deadline_date, procurement_type,
+            cpv_code, cpv_name, cpv_division, cpv_relevance,
+            affinity_score, p_win, p_low_competition, expected_value,
+            days_since_pin, priority, product_line
         FROM {_S}.gold_pin_monitor
         LIMIT 500
     """)
