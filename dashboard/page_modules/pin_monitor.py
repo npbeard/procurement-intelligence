@@ -15,7 +15,7 @@ def render():
     theme = ui.chart_theme(dark)
     colors, grid, layout = theme["colors"], theme["grid"], theme["layout"]
 
-    df = db.pin_monitor(limit=200)
+    df = db.pin_monitor()
 
     total = len(df)
     high_priority = int(df["priority"].sum())

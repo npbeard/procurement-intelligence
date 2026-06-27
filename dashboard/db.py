@@ -212,7 +212,7 @@ def it_lots(limit: int = 500) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=300, show_spinner=False)
-def pin_monitor(limit: int = 200) -> pd.DataFrame:
+def pin_monitor(limit: int = 1000) -> pd.DataFrame:
     """PINs signal a buyer's intent weeks-to-months before the formal
     Contract Notice opens - the proactive layer ahead of Opportunity Radar."""
     return query(f"""
