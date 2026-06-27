@@ -2,7 +2,7 @@
 
 A comprehensive multi-page Streamlit dashboard for procurement market intelligence and tender analysis.
 
-## Features
+### Features
 
 ### 📈 Executive Overview
 Real-time market metrics including:
@@ -10,6 +10,7 @@ Real-time market metrics including:
 - Procurement type distribution
 - Geographic coverage analysis
 - Summary statistics and trends
+
 
 ### 🎯 Opportunity Radar
 Intelligent tender prioritization:

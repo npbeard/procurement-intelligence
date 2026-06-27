@@ -26,7 +26,12 @@
       "Bash(git fetch *)",
       "Bash(git checkout *)",
       "Bash(python -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\)\")",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/copilot.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_pin.py\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/db.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/pin_monitor.py', encoding='utf-8'\\).read\\(\\)\\)\")"
     ]
   }
 }

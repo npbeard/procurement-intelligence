@@ -3,6 +3,7 @@ Procurement Intelligence Streamlit Dashboard
 Main app with 6 business case pages
 """
 
+import datetime
 import os
 import streamlit as st
 import pandas as pd
@@ -25,11 +26,11 @@ except Exception:
 from dashboard.page_modules import (
     executive_overview,
     opportunity_radar,
+    pin_monitor,
     buyer_intelligence,
     supplier_awards,
     trends_forecasts,
     copilot,
-    pin_monitor,
 )
 from dashboard import db, ui
 
@@ -420,20 +421,20 @@ st.sidebar.markdown("---")
 pages = {
     "📈 Executive Overview": executive_overview,
     "🎯 Opportunity Radar": opportunity_radar,
+    "📡 PIN Monitor": pin_monitor,
     "👥 Buyer Intelligence": buyer_intelligence,
     "🏆 Supplier & Awards": supplier_awards,
     "📊 Trends": trends_forecasts,
-    "📌 PIN Monitor": pin_monitor,
     "🤖 Procurement Copilot": copilot,
 }
 
 page_descriptions = {
     "📈 Executive Overview": "Market pulse, opportunity volume, and award patterns.",
     "🎯 Opportunity Radar": "Prioritize tenders by value, urgency, and fit.",
+    "📡 PIN Monitor": "Early pipeline signals — build relationships before tenders open.",
     "👥 Buyer Intelligence": "Understand who is buying and how they procure.",
     "🏆 Supplier & Awards": "See who is winning and how awards are distributed.",
     "📊 Trends": "Track how notice volume and procurement activity are changing over time.",
-    "📌 PIN Monitor": "Early pipeline signals — build relationships before tenders open.",
     "🤖 Procurement Copilot": "Ask natural-language questions about the data.",
 }
 

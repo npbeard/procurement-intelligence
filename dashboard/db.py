@@ -182,24 +182,50 @@ def top_winners(limit: int = 15) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def it_lots(limit: int = 500) -> pd.DataFrame:
-    """IT-relevant CN lots for the Opportunity Radar."""
+    """IT-relevant CN lots for the Opportunity Radar. Two dedup layers: one
+    row per notice (its best-scoring lot, not every lot), and one row per
+    real-world tender (a notice corrected/re-published under a new
+    notice_publication_id - same buyer, title, value - keeps its latest
+    version only)."""
     return query(f"""
         SELECT
-            notice_publication_id,
-            lot_id,
-            lot_name            AS title,
-            cpv_code,
-            cpv_name,
-            cpv_division,
-            procurement_type    AS type,
-            lot_value_eur,
-            submission_deadline_date AS deadline,
-            buyer_name,
-            buyer_country_code  AS country,
-            value_proxy_score,
-            opportunity_score,
-            predicted_competition
-        FROM {_S}.gold_it_lots
+            notice_publication_id, lot_id, title, cpv_code, cpv_name,
+            cpv_division, type, lot_value_eur, deadline, buyer_name, country,
+            value_proxy_score, opportunity_score, predicted_competition
+        FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    notice_publication_id,
+                    lot_id,
+                    lot_name            AS title,
+                    cpv_code,
+                    cpv_name,
+                    cpv_division,
+                    procurement_type    AS type,
+                    lot_value_eur,
+                    submission_deadline_date AS deadline,
+                    buyer_name,
+                    buyer_country_code  AS country,
+                    value_proxy_score,
+                    opportunity_score,
+                    predicted_competition,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY
+                            opportunity_score IS NULL,
+                            COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
+                    ) AS lot_rn
+                FROM {_S}.gold_it_lots
+            )
+            WHERE lot_rn = 1
+        )
+        WHERE notice_rn = 1
         ORDER BY
             opportunity_score IS NULL,
             COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
@@ -208,21 +234,46 @@ def it_lots(limit: int = 500) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Prior Information Notices — early buyer-intent signals, from gold_pin_monitor
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Largest individual lots — still from silver (row-level, no gold equivalent)
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
+    """One row per real-world tender. Two dedup layers: a notice with
+    several lots only counts once (its largest lot), and a tender that got
+    corrected/re-published under a new notice_publication_id (same buyer,
+    title, value) only counts once too - keeping its latest version."""
     return query(f"""
-        SELECT
-            lot_name                                        AS title,
-            buyer_country_code                              AS country,
-            CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
-            cpv_name                                        AS cpv,
-            cpv_division                                    AS cpv_div
-        FROM {_S}.silver_lots_enriched
-        WHERE notice_type = 'ContractNotice'
-          AND lot_value_eur IS NOT NULL
+        SELECT title, country, est_amount, cpv, cpv_div FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    lot_name                                        AS title,
+                    buyer_country_code                              AS country,
+                    CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
+                    cpv_name                                        AS cpv,
+                    cpv_division                                    AS cpv_div,
+                    lot_value_eur,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY lot_value_eur DESC
+                    ) AS lot_rn
+                FROM {_S}.silver_lots_enriched
+                WHERE notice_type = 'ContractNotice'
+                  AND lot_value_eur IS NOT NULL
+            )
+            WHERE lot_rn = 1
+        )
+        WHERE notice_rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
@@ -230,16 +281,35 @@ def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_can_lots(limit: int = 10) -> pd.DataFrame:
+    """One row per real-world award - see largest_cn_lots for the two
+    dedup layers (lot-within-notice, then republished-notice)."""
     return query(f"""
-        SELECT
-            lot_name                                        AS title,
-            buyer_country_code                              AS country,
-            CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
-            tenderer_name                                   AS winner,
-            cpv_name                                        AS cpv
-        FROM {_S}.silver_lots_enriched
-        WHERE notice_type = 'ContractAwardNotice'
-          AND lot_value_eur IS NOT NULL
+        SELECT title, country, awarded, winner, cpv FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    lot_name                                        AS title,
+                    buyer_country_code                              AS country,
+                    CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
+                    tenderer_name                                   AS winner,
+                    cpv_name                                        AS cpv,
+                    lot_value_eur,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY lot_value_eur DESC
+                    ) AS lot_rn
+                FROM {_S}.silver_lots_enriched
+                WHERE notice_type = 'ContractAwardNotice'
+                  AND lot_value_eur IS NOT NULL
+            )
+            WHERE lot_rn = 1
+        )
+        WHERE notice_rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
@@ -250,8 +320,11 @@ def largest_can_lots(limit: int = 10) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=300, show_spinner=False)
-def pin_monitor_lots() -> pd.DataFrame:
-    """Prior Information Notices scored by the ML pipeline."""
+def pin_monitor_lots(limit: int = 1000) -> pd.DataFrame:
+    """Prior Information Notices scored by the ML pipeline. Two dedup
+    layers, same as it_lots/largest_cn_lots: one row per notice (its best
+    lot), and one row per real-world tender even if re-published under a
+    new notice_publication_id (same buyer, title, value)."""
     # Explicit column list avoids Delta schema-mismatch errors when the table
     # was rewritten and a stale column (e.g. 'status') lingers in the metadata.
     df = query(f"""
@@ -264,12 +337,29 @@ def pin_monitor_lots() -> pd.DataFrame:
             cpv_code, cpv_name, cpv_division, cpv_relevance,
             affinity_score, p_win, p_low_competition, expected_value,
             days_since_pin, priority, product_line
-        FROM {_S}.gold_pin_monitor
-        LIMIT 500
+        FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY buyer_country_code, lot_name, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY priority DESC, pin_ev DESC NULLS LAST
+                    ) AS lot_rn
+                FROM {_S}.gold_pin_monitor
+            )
+            WHERE lot_rn = 1
+        )
+        WHERE notice_rn = 1
+        ORDER BY priority DESC, pin_ev DESC NULLS LAST
+        LIMIT {limit}
     """)
     # Normalise column names so the page module has stable names regardless
     # of the exact schema the ML pipeline wrote.
-    renames = {"buyer_country_code": "country"}
+    renames = {"buyer_country_code": "country", "lot_name": "title"}
     df = df.rename(columns=renames)
     if "value_eur" in df.columns:
         df["value_m"] = (df["value_eur"] / 1e6).round(2)

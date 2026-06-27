@@ -28,14 +28,21 @@ def render():
         "suppliers, or tenders. I answer in natural language using live gold-layer data."
     )
 
+    # Allow users to paste a Groq key directly in the UI without needing .env
+    import os
+    if not os.environ.get("GROQ_API_KEY"):
+        with st.expander("🔑 Enter Groq API key to enable Copilot", expanded=True):
+            st.markdown("Get a free key at [console.groq.com](https://console.groq.com) — no credit card needed.")
+            key_input = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
+            if key_input:
+                os.environ["GROQ_API_KEY"] = key_input
+                llm.get_client.cache_clear()
+                st.success("Key saved for this session.")
+                st.rerun()
+
     ready, reason = llm.is_configured()
     if not ready:
-        st.warning(
-            f"⚠️ The Copilot model isn't configured yet: **{reason}**\n\n"
-            "By default the Copilot uses Groq (free). Set `GROQ_API_KEY` in your `.env` "
-            "or deployment secrets and install the `openai` package (`pip install openai`). "
-            "To use Databricks Foundation Model APIs instead, set `CHATBOT_PROVIDER=databricks`."
-        )
+        st.warning(f"⚠️ Copilot not ready: **{reason}**")
 
     st.markdown("---")
 
