@@ -44,6 +44,10 @@ DATA & TERMS
 - "Buyers" are public contracting authorities; "suppliers"/"tenderers" win awards.
 - CPV = Common Procurement Vocabulary, the EU category taxonomy (by division).
 - Monetary values are in EUR.
+- The dataset covers recent EU procurement notices (2025–2026). It contains no
+  year-by-year historical breakdown. If asked about a specific past year (e.g.
+  "in 2019"), clarify that the data does not filter by year and any figures shown
+  reflect the full available dataset, not that year specifically.
 
 RULES
 - To answer anything quantitative, you MUST call the appropriate tool and base
@@ -52,6 +56,8 @@ RULES
 - You may call several tools to assemble one answer.
 - Be concise and use Markdown: short headers, bullet points, bold key figures.
 - Format money readably (e.g. €4.2M, €850K) and always keep the € unit.
+- If a question is clearly unrelated to EU procurement data (e.g. weather,
+  coding tasks, general knowledge), decline politely WITHOUT calling any tools.
 - If a question is outside this procurement data, say what you can help with instead.
 """
 
@@ -73,6 +79,16 @@ def answer(history: list[dict]) -> dict:
     `history` is the running chat (list of {role, content}). Returns
     {"content": <markdown answer>, "tools_used": [<tool names>]}.
     """
+    last_user = next(
+        (m["content"] for m in reversed(history) if m["role"] == "user"), ""
+    )
+    if not last_user.strip():
+        return {
+            "content": "Please ask me a question about the EU procurement market — "
+                       "e.g. top buyers, IT opportunities, country breakdowns, or market totals.",
+            "tools_used": [],
+        }
+
     client = llm.get_client()
     model = llm.model_name()
 
