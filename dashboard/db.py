@@ -182,24 +182,39 @@ def top_winners(limit: int = 15) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def it_lots(limit: int = 500) -> pd.DataFrame:
-    """IT-relevant CN lots for the Opportunity Radar."""
+    """IT-relevant CN lots for the Opportunity Radar - one row per notice
+    (its best-scoring lot), not per lot, so a multi-lot notice doesn't show
+    up as several near-identical rows."""
     return query(f"""
         SELECT
-            notice_publication_id,
-            lot_id,
-            lot_name            AS title,
-            cpv_code,
-            cpv_name,
-            cpv_division,
-            procurement_type    AS type,
-            lot_value_eur,
-            submission_deadline_date AS deadline,
-            buyer_name,
-            buyer_country_code  AS country,
-            value_proxy_score,
-            opportunity_score,
-            predicted_competition
-        FROM {_S}.gold_it_lots
+            notice_publication_id, lot_id, title, cpv_code, cpv_name,
+            cpv_division, type, lot_value_eur, deadline, buyer_name, country,
+            value_proxy_score, opportunity_score, predicted_competition
+        FROM (
+            SELECT
+                notice_publication_id,
+                lot_id,
+                lot_name            AS title,
+                cpv_code,
+                cpv_name,
+                cpv_division,
+                procurement_type    AS type,
+                lot_value_eur,
+                submission_deadline_date AS deadline,
+                buyer_name,
+                buyer_country_code  AS country,
+                value_proxy_score,
+                opportunity_score,
+                predicted_competition,
+                ROW_NUMBER() OVER (
+                    PARTITION BY notice_publication_id
+                    ORDER BY
+                        opportunity_score IS NULL,
+                        COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
+                ) AS rn
+            FROM {_S}.gold_it_lots
+        )
+        WHERE rn = 1
         ORDER BY
             opportunity_score IS NULL,
             COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
@@ -240,16 +255,26 @@ def pin_monitor(limit: int = 1000) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
+    """One row per notice (largest lot), not per lot - a notice with several
+    lots would otherwise show up multiple times in a 'largest' ranking."""
     return query(f"""
-        SELECT
-            lot_name                                        AS title,
-            buyer_country_code                              AS country,
-            CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
-            cpv_name                                        AS cpv,
-            cpv_division                                    AS cpv_div
-        FROM {_S}.silver_lots_enriched
-        WHERE notice_type = 'ContractNotice'
-          AND lot_value_eur IS NOT NULL
+        SELECT title, country, est_amount, cpv, cpv_div FROM (
+            SELECT
+                lot_name                                        AS title,
+                buyer_country_code                              AS country,
+                CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
+                cpv_name                                        AS cpv,
+                cpv_division                                    AS cpv_div,
+                lot_value_eur,
+                ROW_NUMBER() OVER (
+                    PARTITION BY notice_publication_id
+                    ORDER BY lot_value_eur DESC
+                ) AS rn
+            FROM {_S}.silver_lots_enriched
+            WHERE notice_type = 'ContractNotice'
+              AND lot_value_eur IS NOT NULL
+        )
+        WHERE rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
@@ -257,16 +282,25 @@ def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_can_lots(limit: int = 10) -> pd.DataFrame:
+    """One row per notice (largest lot), not per lot - see largest_cn_lots."""
     return query(f"""
-        SELECT
-            lot_name                                        AS title,
-            buyer_country_code                              AS country,
-            CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
-            tenderer_name                                   AS winner,
-            cpv_name                                        AS cpv
-        FROM {_S}.silver_lots_enriched
-        WHERE notice_type = 'ContractAwardNotice'
-          AND lot_value_eur IS NOT NULL
+        SELECT title, country, awarded, winner, cpv FROM (
+            SELECT
+                lot_name                                        AS title,
+                buyer_country_code                              AS country,
+                CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
+                tenderer_name                                   AS winner,
+                cpv_name                                        AS cpv,
+                lot_value_eur,
+                ROW_NUMBER() OVER (
+                    PARTITION BY notice_publication_id
+                    ORDER BY lot_value_eur DESC
+                ) AS rn
+            FROM {_S}.silver_lots_enriched
+            WHERE notice_type = 'ContractAwardNotice'
+              AND lot_value_eur IS NOT NULL
+        )
+        WHERE rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
