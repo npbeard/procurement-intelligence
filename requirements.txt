@@ -1,16 +1,8 @@
-requests
 python-dotenv
 pandas
-scikit-learn
 plotly
 streamlit
 databricks-sql-connector
 pyarrow
 lxml
-xgboost
-lightgbm
-numpy
-matplotlib
-seaborn
-joblib
 openai
