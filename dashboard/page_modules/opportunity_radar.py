@@ -1,8 +1,6 @@
 """
 Opportunity Radar Page — Which tenders should we prioritize?
 Reads from gold_it_lots (IT-filtered CN lots, pre-built by dbt daily).
-opportunity_score column populates automatically once Bojana's XGBoost
-model writes to capstone.ted.gold_opportunity_scores.
 """
 
 import streamlit as st
@@ -93,17 +91,11 @@ def render():
                  hide_index=True, column_config=col_config)
 
     if not has_ml_score:
-        st.info(
-            "Showing **value proxy score** (log-scaled lot value). "
-            "Bojana's ML competition/attractiveness score will replace this "
-            "once `capstone.ted.gold_opportunity_scores` is written."
-        )
+        st.info("Showing **value proxy score** (log-scaled lot value).")
     else:
         scored_pct = filtered["opportunity_score"].notna().mean()
-        st.caption(
-            f"{scored_pct:.0%} of these lots have a real ML score; the rest "
-            "show a value-based proxy score until Bojana's model covers them."
-        )
+        if scored_pct < 1.0:
+            st.caption(f"{scored_pct:.0%} of these lots have a real ML score; the rest show a value-based proxy.")
 
     st.markdown("")
 
