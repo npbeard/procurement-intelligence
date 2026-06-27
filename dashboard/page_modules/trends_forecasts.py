@@ -75,7 +75,3 @@ def render():
     fig.update_traces(hovertemplate=ui.hover_xy("Date", "Cumulative"))
     st.plotly_chart(fig, use_container_width=True)
 
-    st.info(
-        "**Note:** Forecast / AI projection features will be enabled once "
-        "the ML gold layer is connected (Bojana's opportunity scoring model)."
-    )
