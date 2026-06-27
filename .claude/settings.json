@@ -2,36 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(git mv *)",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/executive_overview.py', encoding='utf-8'\\).read\\(\\)\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/supplier_awards.py', encoding='utf-8'\\).read\\(\\)\\)\")",
-      "Bash(./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app.py\")",
-      "Bash(grep -v \"^20\\\\|missing ScriptRunContext\\\\|use_container_width\\\\|^$\\\\|^For \\\\`\")",
-      "Bash(./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\inspect_kpi.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app2.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_app3.py\")",
-      "Bash(./.venv/Scripts/python.exe -c ' *)",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_hover.py\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe -c ' *)",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/ui.py', encoding='utf-8'\\).read\\(\\)\\)\")",
-      "Bash(timeout 25 ./.venv/Scripts/python.exe -c ' *)",
-      "Bash(awk -F= '{print $1\": \"length\\($2\\)\" chars\"}' .env)",
-      "Bash(timeout 30 ./.venv/Scripts/python.exe -c ' *)",
-      "Bash(git merge *)",
-      "Bash(./.venv/Scripts/python.exe -c \"import openai\")",
-      "Bash(./.venv/Scripts/python.exe -m pip install openai)",
-      "Bash(./.venv/Scripts/python.exe -c \"from openai import BadRequestError, RateLimitError; print\\('OK'\\)\")",
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git fetch *)",
       "Bash(git checkout *)",
-      "Bash(python -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\)\")",
       "Bash(git push *)",
       "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(python -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/executive_overview.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/supplier_awards.py', encoding='utf-8'\\).read\\(\\)\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/copilot.py', encoding='utf-8'\\).read\\(\\)\\)\")",
-      "Bash(PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-capstone-procurement-intelligence\\\\9d00ebb4-ae4d-46df-b416-347ac28da3c6\\\\scratchpad\\\\test_pin.py\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/db.py', encoding='utf-8'\\).read\\(\\)\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/pin_monitor.py', encoding='utf-8'\\).read\\(\\)\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/pin_monitor.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/ui.py', encoding='utf-8'\\).read\\(\\)\\)\")"
     ]
   }
 }

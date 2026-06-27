@@ -1,9 +1,0 @@
-==================== 2026-06-27T12:24:04.209621Z | 00000000-0000-0000-0000-000000000000 ====================
-==================== 2026-06-27T12:24:04.210195Z | 17111aaa-b86b-4fef-84bb-9a77154a7688 ====================
-12:24:04.210238 [info ]: Starting dbt LSP server
-12:24:04.210279 [info ]: Connecting to LSP client on port 8000
-12:24:04.212067 [info ]: Successfully connected to LSP client
-12:24:04.212125 [info ]: Creating LSP service...
-12:24:04.286460 [info ]: Creating LSP server...
-12:24:04.286485 [info ]: Starting LSP server...
-12:26:28.293294 [info ]: Loading profiles.yml
