@@ -24,6 +24,7 @@ except Exception:
 from dashboard.page_modules import (
     executive_overview,
     opportunity_radar,
+    pin_monitor,
     buyer_intelligence,
     supplier_awards,
     trends_forecasts,
@@ -418,6 +419,7 @@ st.sidebar.markdown("---")
 pages = {
     "📈 Executive Overview": executive_overview,
     "🎯 Opportunity Radar": opportunity_radar,
+    "📡 PIN Monitor": pin_monitor,
     "👥 Buyer Intelligence": buyer_intelligence,
     "🏆 Supplier & Awards": supplier_awards,
     "📊 Trends & Forecasts": trends_forecasts,
@@ -427,6 +429,7 @@ pages = {
 page_descriptions = {
     "📈 Executive Overview": "Market pulse, opportunity volume, and award patterns.",
     "🎯 Opportunity Radar": "Prioritize tenders by value, urgency, and fit.",
+    "📡 PIN Monitor": "Track upcoming buyer intentions before tenders open.",
     "👥 Buyer Intelligence": "Understand who is buying and how they procure.",
     "🏆 Supplier & Awards": "See who is winning and how awards are distributed.",
     "📊 Trends & Forecasts": "Track changing demand and forecast future signals.",

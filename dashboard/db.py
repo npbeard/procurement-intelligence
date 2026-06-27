@@ -208,6 +208,33 @@ def it_lots(limit: int = 500) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Prior Information Notices — early buyer-intent signals, from gold_pin_monitor
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=300, show_spinner=False)
+def pin_monitor(limit: int = 200) -> pd.DataFrame:
+    """PINs signal a buyer's intent weeks-to-months before the formal
+    Contract Notice opens - the proactive layer ahead of Opportunity Radar."""
+    return query(f"""
+        SELECT
+            notice_publication_id,
+            lot_name             AS title,
+            buyer_name,
+            buyer_country_code   AS country,
+            cpv_division,
+            cpv_name,
+            COALESCE(lot_value_eur, value_eur) AS value_eur,
+            expected_value,
+            p_win,
+            days_since_pin,
+            priority
+        FROM {_S}.gold_pin_monitor
+        ORDER BY priority DESC, expected_value DESC NULLS LAST
+        LIMIT {limit}
+    """)
+
+
+# ---------------------------------------------------------------------------
 # Largest individual lots — still from silver (row-level, no gold equivalent)
 # ---------------------------------------------------------------------------
 
