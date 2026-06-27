@@ -182,39 +182,50 @@ def top_winners(limit: int = 15) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def it_lots(limit: int = 500) -> pd.DataFrame:
-    """IT-relevant CN lots for the Opportunity Radar - one row per notice
-    (its best-scoring lot), not per lot, so a multi-lot notice doesn't show
-    up as several near-identical rows."""
+    """IT-relevant CN lots for the Opportunity Radar. Two dedup layers: one
+    row per notice (its best-scoring lot, not every lot), and one row per
+    real-world tender (a notice corrected/re-published under a new
+    notice_publication_id - same buyer, title, value - keeps its latest
+    version only)."""
     return query(f"""
         SELECT
             notice_publication_id, lot_id, title, cpv_code, cpv_name,
             cpv_division, type, lot_value_eur, deadline, buyer_name, country,
             value_proxy_score, opportunity_score, predicted_competition
         FROM (
-            SELECT
-                notice_publication_id,
-                lot_id,
-                lot_name            AS title,
-                cpv_code,
-                cpv_name,
-                cpv_division,
-                procurement_type    AS type,
-                lot_value_eur,
-                submission_deadline_date AS deadline,
-                buyer_name,
-                buyer_country_code  AS country,
-                value_proxy_score,
-                opportunity_score,
-                predicted_competition,
+            SELECT *,
                 ROW_NUMBER() OVER (
-                    PARTITION BY notice_publication_id
-                    ORDER BY
-                        opportunity_score IS NULL,
-                        COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
-                ) AS rn
-            FROM {_S}.gold_it_lots
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    notice_publication_id,
+                    lot_id,
+                    lot_name            AS title,
+                    cpv_code,
+                    cpv_name,
+                    cpv_division,
+                    procurement_type    AS type,
+                    lot_value_eur,
+                    submission_deadline_date AS deadline,
+                    buyer_name,
+                    buyer_country_code  AS country,
+                    value_proxy_score,
+                    opportunity_score,
+                    predicted_competition,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY
+                            opportunity_score IS NULL,
+                            COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
+                    ) AS lot_rn
+                FROM {_S}.gold_it_lots
+            )
+            WHERE lot_rn = 1
         )
-        WHERE rn = 1
+        WHERE notice_rn = 1
         ORDER BY
             opportunity_score IS NULL,
             COALESCE(opportunity_score, value_proxy_score) DESC NULLS LAST
@@ -255,26 +266,37 @@ def pin_monitor(limit: int = 1000) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
-    """One row per notice (largest lot), not per lot - a notice with several
-    lots would otherwise show up multiple times in a 'largest' ranking."""
+    """One row per real-world tender. Two dedup layers: a notice with
+    several lots only counts once (its largest lot), and a tender that got
+    corrected/re-published under a new notice_publication_id (same buyer,
+    title, value) only counts once too - keeping its latest version."""
     return query(f"""
         SELECT title, country, est_amount, cpv, cpv_div FROM (
-            SELECT
-                lot_name                                        AS title,
-                buyer_country_code                              AS country,
-                CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
-                cpv_name                                        AS cpv,
-                cpv_division                                    AS cpv_div,
-                lot_value_eur,
+            SELECT *,
                 ROW_NUMBER() OVER (
-                    PARTITION BY notice_publication_id
-                    ORDER BY lot_value_eur DESC
-                ) AS rn
-            FROM {_S}.silver_lots_enriched
-            WHERE notice_type = 'ContractNotice'
-              AND lot_value_eur IS NOT NULL
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    lot_name                                        AS title,
+                    buyer_country_code                              AS country,
+                    CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS est_amount,
+                    cpv_name                                        AS cpv,
+                    cpv_division                                    AS cpv_div,
+                    lot_value_eur,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY lot_value_eur DESC
+                    ) AS lot_rn
+                FROM {_S}.silver_lots_enriched
+                WHERE notice_type = 'ContractNotice'
+                  AND lot_value_eur IS NOT NULL
+            )
+            WHERE lot_rn = 1
         )
-        WHERE rn = 1
+        WHERE notice_rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
@@ -282,25 +304,35 @@ def largest_cn_lots(limit: int = 10) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def largest_can_lots(limit: int = 10) -> pd.DataFrame:
-    """One row per notice (largest lot), not per lot - see largest_cn_lots."""
+    """One row per real-world award - see largest_cn_lots for the two
+    dedup layers (lot-within-notice, then republished-notice)."""
     return query(f"""
         SELECT title, country, awarded, winner, cpv FROM (
-            SELECT
-                lot_name                                        AS title,
-                buyer_country_code                              AS country,
-                CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
-                tenderer_name                                   AS winner,
-                cpv_name                                        AS cpv,
-                lot_value_eur,
+            SELECT *,
                 ROW_NUMBER() OVER (
-                    PARTITION BY notice_publication_id
-                    ORDER BY lot_value_eur DESC
-                ) AS rn
-            FROM {_S}.silver_lots_enriched
-            WHERE notice_type = 'ContractAwardNotice'
-              AND lot_value_eur IS NOT NULL
+                    PARTITION BY country, title, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT
+                    lot_name                                        AS title,
+                    buyer_country_code                              AS country,
+                    CONCAT('€', FORMAT_NUMBER(lot_value_eur, 0))   AS awarded,
+                    tenderer_name                                   AS winner,
+                    cpv_name                                        AS cpv,
+                    lot_value_eur,
+                    issue_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY lot_value_eur DESC
+                    ) AS lot_rn
+                FROM {_S}.silver_lots_enriched
+                WHERE notice_type = 'ContractAwardNotice'
+                  AND lot_value_eur IS NOT NULL
+            )
+            WHERE lot_rn = 1
         )
-        WHERE rn = 1
+        WHERE notice_rn = 1
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
