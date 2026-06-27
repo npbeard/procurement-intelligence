@@ -26,7 +26,9 @@
       "Bash(git fetch *)",
       "Bash(git checkout *)",
       "Bash(python -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\)\")",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('dashboard/page_modules/copilot.py', encoding='utf-8'\\).read\\(\\)\\)\")"
     ]
   }
 }
