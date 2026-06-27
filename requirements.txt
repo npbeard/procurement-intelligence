@@ -6,7 +6,6 @@ plotly
 streamlit
 databricks-sql-connector
 pyarrow
-dbt-databricks
 lxml
 xgboost
 lightgbm
