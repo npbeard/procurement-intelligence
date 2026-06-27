@@ -3,9 +3,12 @@ from __future__ import annotations
 import os
 
 # load .env automatically. (Or run with `uv run --env-file .env ...`.)
-from dotenv import load_dotenv
-
-load_dotenv()
+# Skipped inside Databricks: .env is gitignored and never exists in the Repo,
+# and probing for it there can hit a WSFS FUSE quirk that throws instead of
+# just reporting "not found" (same issue we saw with dbt's selectors.yml).
+if not os.getenv("DATABRICKS_RUNTIME_VERSION"):
+    from dotenv import load_dotenv
+    load_dotenv()
 
 # --- Auth defaults (real secrets come from .env / environment) ----------------
 # Pick ONE compute. Leave HOST/TOKEN to the environment; don't hardcode them.
@@ -28,12 +31,15 @@ MODEL_TARGET = f"{CATALOG}.{SCHEMA}"
 
 
 def get_spark():
-    """Notebook → ambient spark. Local/VSCode → Databricks Connect."""
+    """Inside Databricks runtime → ambient SparkSession. Local → Databricks Connect."""
+    if os.getenv("DATABRICKS_RUNTIME_VERSION"):
+        from pyspark.sql import SparkSession
+        return SparkSession.builder.getOrCreate()
     try:
         from databricks.connect import DatabricksSession
         print("Databricks connected")
         return DatabricksSession.builder.getOrCreate()
     except ImportError:
         from pyspark.sql import SparkSession
-        print('Spark session created')
+        print("Spark session created")
         return SparkSession.builder.getOrCreate()

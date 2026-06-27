@@ -1,8 +1,8 @@
 version: 2
 sources:
   - name: ted_raw
-    catalog: samples
-    schema: ted_intelligence
+    catalog: capstone
+    schema: ted
     description: "Parsed TED eForms notices written by bronze_to_silver_spark.py."
     tables:
       - name: notices
@@ -29,6 +29,14 @@ sources:
             description: "Regulatory domain code."
           - name: buyer_org_ref
             description: "Org reference of the contracting party (-> organizations.org_ref)."
+          - name: estimated_value
+            description: "Estimated value of the notice before beign awarded to an organization"
+          - name: estimated_currency
+            description: "Currency of the estimated value"
+          - name: total_value
+            description: "Total value was the contract is awarded"
+          - name: total_currency
+            description: "Curreny of the total value"
           - name: source_file
             description: "Originating .xml filename for lineage."
       - name: lots
@@ -47,6 +55,12 @@ sources:
             description: "Procurement type code (works/supplies/services)."
           - name: cpv_code
             description: "Main CPV classification code for the lot."
+          - name: value
+            description: "Estimated overall contract amount for the lot."
+          - name: currency
+            description: "Currency of the lot's estimated value."
+          - name: status
+            description: "Tender result code for the lot (e.g. awarded, not awarded)."
       - name: award_criteria
         description: "Award criteria per lot (price/quality and weights)."
         columns:

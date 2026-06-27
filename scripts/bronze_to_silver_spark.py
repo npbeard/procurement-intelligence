@@ -68,6 +68,15 @@ def _num(node, path: str) -> float | None:
         return float(raw)
     except ValueError:
         return None
+    
+
+def _attr(node, path: str, attr: str) -> str | None:
+    """Find ONE element at `path` and return one of its attributes (e.g. currencyID)."""
+    found = node.find(path, NS)
+    if found is None:
+        return None
+    value = found.get(attr)
+    return value.strip() if value else None
 
 
 # --- Per-file parsing --------------------------------------------------------
@@ -109,12 +118,71 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
         "buyer_org_ref": _text(
             root, "./cac:ContractingParty/cac:Party/cac:PartyIdentification/cbc:ID"
         ),
+        "buyer_legal_type": _text(
+            root, "./cac:ContractingParty/cac:ContractingPartyType/cbc:PartyTypeCode"
+        ),
+        "procurement_procedure": _text(root, "./cac:TenderingProcess/cbc:ProcedureCode"),
+        # Notice-level money. Two distinct figures that can both be absent:
+        #   estimated_* = the overall estimated contract value (root project)
+        #   total_*     = the actual total awarded value (efac:NoticeResult)
+        "estimated_value": _num(
+            root, "./cac:ProcurementProject/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount"
+        ),
+        "estimated_currency": _attr(
+            root,
+            "./cac:ProcurementProject/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount",
+            "currencyID",
+        ),
+        "total_value": _num(root, ".//efac:NoticeResult/cbc:TotalAmount"),
+        "total_currency": _attr(root, ".//efac:NoticeResult/cbc:TotalAmount", "currencyID"),
         "source_file": source.rsplit("/", 1)[-1],
     })
+
+    lot_status: dict[str, str | None] = {}
+    for lr in root.findall(".//efac:LotResult", NS):
+        ref = _text(lr, "./efac:TenderLot/cbc:ID")
+        if ref:
+            lot_status[ref] = _text(lr, "./cbc:TenderResultCode")
+
+    # Build lot -> tenderer org_ref lookup (only present in CAN award notices).
+    # Chain: LotResult(lot_id -> tender_id) -> LotTender(tender_id -> tpa_id)
+    #        -> TenderingParty(tpa_id -> org_ref)
+    lot_tender: dict[str, str] = {}
+    lot_nb_tenders: dict[str, int] = {}
+    for lr in root.findall(".//efac:NoticeResult/efac:LotResult", NS):
+        lot_ref = _text(lr, "./efac:TenderLot/cbc:ID")
+        tender_ref = _text(lr, "./efac:LotTender/cbc:ID")
+        if lot_ref and tender_ref:
+            lot_tender[lot_ref] = tender_ref
+        # efbc:ReceivedTendersQuantity is not used in practice; the actual
+        # field is efac:ReceivedSubmissionsStatistics with code "tenders".
+        for stats in lr.findall("./efac:ReceivedSubmissionsStatistics", NS):
+            if _text(stats, "./efbc:StatisticsCode") == "tenders":
+                nb = _num(stats, "./efbc:StatisticsNumeric")
+                if lot_ref and nb is not None:
+                    lot_nb_tenders[lot_ref] = int(nb)
+
+    tender_tpa: dict[str, str] = {}
+    for lt in root.findall(".//efac:NoticeResult/efac:LotTender", NS):
+        tid = _text(lt, "./cbc:ID")
+        tpa = _text(lt, "./efac:TenderingParty/cbc:ID")
+        if tid and tpa:
+            tender_tpa[tid] = tpa
+
+    tpa_org: dict[str, str] = {}
+    for tpa in root.findall(".//efac:NoticeResult/efac:TenderingParty", NS):
+        tpa_id = _text(tpa, "./cbc:ID")
+        org = _text(tpa, "./efac:Tenderer/cbc:ID")
+        if tpa_id and org:
+            tpa_org[tpa_id] = org
 
     for lot in root.findall(".//cac:ProcurementProjectLot", NS):
         lot_id = _text(lot, "./cbc:ID")
         project = "./cac:ProcurementProject"
+        amount_path = f"{project}/cac:RequestedTenderTotal/cbc:EstimatedOverallContractAmount"
+        deadline = "./cac:TenderingProcess/cac:TenderSubmissionDeadlinePeriod"
+        tender_id = lot_tender.get(lot_id)
+        tpa_id = tender_tpa.get(tender_id) if tender_id else None
         out["lots"].append({
             "notice_publication_id": pub_id,
             "lot_id": lot_id,
@@ -124,6 +192,13 @@ def parse_bytes(content: bytes, source: str) -> dict[str, list]:
             "cpv_code": _text(
                 lot, f"{project}/cac:MainCommodityClassification/cbc:ItemClassificationCode"
             ),
+            "value": _num(lot, amount_path),
+            "currency": _attr(lot, amount_path, "currencyID"),
+            "status": lot_status.get(lot_id),
+            "submission_deadline_date": _text(lot, f"{deadline}/cbc:EndDate"),
+            "submission_deadline_time": _text(lot, f"{deadline}/cbc:EndTime"),
+            "tenderer_org_ref": tpa_org.get(tpa_id) if tpa_id else None,
+            "nb_tenders_received": lot_nb_tenders.get(lot_id),
         })
         for i, crit in enumerate(lot.findall(".//cac:SubordinateAwardingCriterion", NS)):
             out["award_criteria"].append({
@@ -167,6 +242,12 @@ SCHEMAS: dict[str, StructType] = {
         StructField("language", StringType()),
         StructField("regulatory_domain", StringType()),
         StructField("buyer_org_ref", StringType()),
+        StructField("buyer_legal_type", StringType()),
+        StructField("procurement_procedure", StringType()),
+        StructField("estimated_value", DoubleType()),
+        StructField("estimated_currency", StringType()),
+        StructField("total_value", DoubleType()),
+        StructField("total_currency", StringType()),
         StructField("source_file", StringType()),
     ]),
     "lots": StructType([
@@ -176,6 +257,13 @@ SCHEMAS: dict[str, StructType] = {
         StructField("description", StringType()),
         StructField("procurement_type", StringType()),
         StructField("cpv_code", StringType()),
+        StructField("value", DoubleType()),
+        StructField("currency", StringType()),
+        StructField("status", StringType()),
+        StructField("submission_deadline_date", StringType()),
+        StructField("submission_deadline_time", StringType()),
+        StructField("tenderer_org_ref", StringType()),
+        StructField("nb_tenders_received", LongType()),
     ]),
     "award_criteria": StructType([
         StructField("notice_publication_id", StringType()),
@@ -246,28 +334,25 @@ def already_parsed_files(spark, target):
         for r in spark.table(tbl).select("source_file").distinct().collect()
     }
 
-def build_table_dataframes(spark, raw_volume, target):
-    all_paths = list_xml_paths(spark, raw_volume)
-    done = already_parsed_files(spark, target)
-    new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
-
-    print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
-          f"| {len(new_paths)} new to process")
-    if not new_paths:
-        return {}                                  # nothing to do
-
-    # Load ONLY the new files' content (passing the explicit path list)
+def _parse_paths_to_tables(spark, paths: list[str]) -> dict:
+    """Load + parse ONE batch of file paths on the driver, return per-table DataFrames."""
     files = (
         spark.read.format("binaryFile")
-        .load(new_paths)
+        .load(paths)
         .select("path", "content")
     )
 
-    # Parse on the driver (has lxml, no UDF sandbox)
+    # Parse on the driver (has lxml, no UDF sandbox). Use collect() rather than
+    # toLocalIterator(): on serverless (Spark Connect), toLocalIterator() holds
+    # a server-side streaming execute handle open across the whole loop, and
+    # the per-row lxml parsing here is slow enough that the gaps between row
+    # fetches exceed the server's inactivity timeout, killing the handle with
+    # INVALID_HANDLE.OPERATION_ABANDONED. collect() fetches the batch's file
+    # content in one RPC, so parsing afterwards never touches Spark Connect.
+    rows = files.collect()
     bucket = {name: [] for name in TABLE_NAMES}
     errors = []
-    for row in tqdm(files.toLocalIterator(), total=len(new_paths),
-                    desc="Parsing new files", unit="file"):
+    for row in tqdm(rows, total=len(rows), desc="Parsing", unit="file"):
         out = parse_bytes(bytes(row["content"]), row["path"])
         for name in TABLE_NAMES:
             bucket[name].extend(out[name])
@@ -286,7 +371,8 @@ def build_table_dataframes(spark, raw_volume, target):
             tqdm.write(f"  - {src.rsplit('/', 1)[-1]}: {reason}")
     return tables
 
-def write_delta(tables: dict, target: str, writing_mode: str = "append") -> None:
+
+def write_delta(tables: dict, target: str, writing_mode: str = "overwrite") -> None:
     """Append each DataFrame to <catalog>.<schema>.<name>. Notices written LAST."""
     # notices is the 'done' marker, so commit it only after the child tables.
     order = [n for n in tables if n != "notices"]
@@ -304,22 +390,52 @@ def write_delta(tables: dict, target: str, writing_mode: str = "append") -> None
         tqdm.write(f"  wrote {full_name}")
 
 
+def parse_and_write_incremental(spark, raw_volume: str, target: str,
+                                 batch_size: int = 500) -> None:
+    """
+    Parse new XML files in bounded-size batches, writing each batch to Delta
+    before moving to the next. Parsing happens on the driver (lxml, no UDF
+    sandbox), so without batching, a large backlog holds every parsed record
+    for every new file in driver memory at once — this is what made the
+    ~115-edition backlog crash with an opaque platform error after 100+
+    minutes. Batching bounds that memory use and checkpoints progress:
+    notices are written last within each batch, so a crash mid-run only
+    re-parses the batch in flight, not files already committed earlier.
+    """
+    all_paths = list_xml_paths(spark, raw_volume)
+    done = already_parsed_files(spark, target)
+    new_paths = [p for p in all_paths if p.rsplit("/", 1)[-1] not in done]
+
+    print(f"{len(all_paths)} files in volume | {len(done)} already parsed "
+          f"| {len(new_paths)} new to process")
+    if not new_paths:
+        print("Nothing new to parse — tables are up to date.")
+        return
+
+    batches = [new_paths[i:i + batch_size] for i in range(0, len(new_paths), batch_size)]
+    print(f"Processing in {len(batches)} batch(es) of up to {batch_size} files")
+
+    for i, batch_paths in enumerate(batches, start=1):
+        print(f"\n--- Batch {i}/{len(batches)} ({len(batch_paths)} files) ---")
+        tables = _parse_paths_to_tables(spark, batch_paths)
+        write_delta(tables, target, writing_mode="append")
+
+    print(f"\nDone. Processed {len(new_paths)} new file(s) in {len(batches)} batch(es).")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Incrementally shred new bronze XML into Delta.")
     p.add_argument("--raw-volume", default=config.RAW_XML_VOLUME)
     p.add_argument("--target", default=config.PARSED_TARGET)
+    p.add_argument("--batch-size", type=int, default=500,
+                   help="Max files parsed and written per batch (bounds driver memory).")
     args = p.parse_args()
 
     spark = get_spark()
     catalog, schema = args.target.split(".")
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
 
-    tables = build_table_dataframes(spark, args.raw_volume, args.target)
-    if not tables:
-        print("Nothing new to parse — tables are up to date.")
-        return
-    write_delta(tables, args.target)
-    print(f"\nDone. Appended new rows under {args.target}")
+    parse_and_write_incremental(spark, args.raw_volume, args.target, args.batch_size)
 
 if __name__ == "__main__":
     main()

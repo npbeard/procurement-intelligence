@@ -1,8 +1,6 @@
 """
 Opportunity Radar Page — Which tenders should we prioritize?
 Reads from gold_it_lots (IT-filtered CN lots, pre-built by dbt daily).
-opportunity_score column populates automatically once Bojana's XGBoost
-model writes to capstone.ted.gold_opportunity_scores.
 """
 
 import streamlit as st
@@ -51,19 +49,38 @@ def render():
     has_ml_score = filtered["opportunity_score"].notna().any()
     score_label  = "ML Score" if has_ml_score else "Value Score (proxy)"
 
-    # Per-row fallback: use the real ML score where it exists, otherwise the
-    # value proxy - avoids blank cells for lots Bojana's model hasn't scored.
+    # Per-row fallback: real ML score where available, proxy elsewhere
+    filtered = filtered.copy()
     filtered["display_score"] = filtered["opportunity_score"].combine_first(
         filtered["value_proxy_score"]
     )
+    # opportunity_score is raw expected value (€); percentile-rank to 0–10 for the progress bar
+    if has_ml_score:
+        filtered["display_score"] = (filtered["display_score"].rank(pct=True) * 10).round(1)
 
-    display = filtered[["title", "country", "lot_value_eur",
-                         "type", "cpv_name", "deadline", "display_score"]].copy()
+    display_cols  = ["title", "country", "lot_value_eur", "type", "cpv_name", "deadline", "display_score"]
+    display_names = ["Title", "Country", "Value", "Type", "CPV", "Deadline", score_label]
+
+    # predicted_competition arrives as a raw probability (0–1); bucket for display
+    has_competition = (
+        "predicted_competition" in filtered.columns
+        and filtered["predicted_competition"].notna().any()
+    )
+    if has_competition:
+        def _comp_label(v):
+            if pd.isna(v): return "—"
+            return "Low" if v < 0.4 else ("Medium" if v < 0.7 else "High")
+        filtered["competition"] = filtered["predicted_competition"].map(_comp_label)
+        display_cols.append("competition")
+        display_names.append("Competition")
+
+    display = filtered[display_cols].copy()
+
+
     display["lot_value_eur"] = display["lot_value_eur"].apply(
         lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"
     )
-    display.columns = ["Title", "Country", "Value", "Type", "CPV",
-                       "Deadline", score_label]
+    display.columns = display_names
 
     col_config = {
         score_label: st.column_config.ProgressColumn(
@@ -74,17 +91,11 @@ def render():
                  hide_index=True, column_config=col_config)
 
     if not has_ml_score:
-        st.info(
-            "Showing **value proxy score** (log-scaled lot value). "
-            "Bojana's ML competition/attractiveness score will replace this "
-            "once `capstone.ted.gold_opportunity_scores` is written."
-        )
+        st.info("Showing **value proxy score** (log-scaled lot value).")
     else:
         scored_pct = filtered["opportunity_score"].notna().mean()
-        st.caption(
-            f"{scored_pct:.0%} of these lots have a real ML score; the rest "
-            "show a value-based proxy score until Bojana's model covers them."
-        )
+        if scored_pct < 1.0:
+            st.caption(f"{scored_pct:.0%} of these lots have a real ML score; the rest show a value-based proxy.")
 
     st.markdown("")
 

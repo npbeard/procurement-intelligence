@@ -3,12 +3,14 @@ name = "ted-intelligence"
 version = "0.1.0"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "databricks-connect",      # see version note below
+    "databricks-connect",
     "databricks-sdk>=0.30",
     "requests>=2.31",
     "lxml>=5.0",
     "pandas>=2.0",
-    "streamlit",
+    "streamlit>=1.36",
+    "plotly>=5.0",
+    "openai>=1.0",
     "dbt-databricks>=1.9",
     "polars>=0.20.0",
     "databricks",
@@ -20,8 +22,5 @@ dependencies = [
     "sqlfluff",
     "sqlfluff-templater-dbt",
     "tqdm",
-    
+    "dbt-core"
 ]
-
-[dependency-groups]
-app = ["streamlit>=1.36", "plotly>=5.0"]  # later stages

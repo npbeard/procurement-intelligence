@@ -237,29 +237,6 @@ def it_lots(limit: int = 500) -> pd.DataFrame:
 # Prior Information Notices — early buyer-intent signals, from gold_pin_monitor
 # ---------------------------------------------------------------------------
 
-@st.cache_data(ttl=300, show_spinner=False)
-def pin_monitor(limit: int = 1000) -> pd.DataFrame:
-    """PINs signal a buyer's intent weeks-to-months before the formal
-    Contract Notice opens - the proactive layer ahead of Opportunity Radar."""
-    return query(f"""
-        SELECT
-            notice_publication_id,
-            lot_name             AS title,
-            buyer_name,
-            buyer_country_code   AS country,
-            cpv_division,
-            cpv_name,
-            COALESCE(lot_value_eur, value_eur) AS value_eur,
-            expected_value,
-            p_win,
-            days_since_pin,
-            priority
-        FROM {_S}.gold_pin_monitor
-        ORDER BY priority DESC, expected_value DESC NULLS LAST
-        LIMIT {limit}
-    """)
-
-
 # ---------------------------------------------------------------------------
 # Largest individual lots — still from silver (row-level, no gold equivalent)
 # ---------------------------------------------------------------------------
@@ -336,6 +313,81 @@ def largest_can_lots(limit: int = 10) -> pd.DataFrame:
         ORDER BY lot_value_eur DESC
         LIMIT {limit}
     """)
+
+
+# ---------------------------------------------------------------------------
+# PIN Monitor — from gold_pin_monitor (ML pipeline output)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=300, show_spinner=False)
+def pin_monitor_lots(limit: int = 1000) -> pd.DataFrame:
+    """Prior Information Notices scored by the ML pipeline. Two dedup
+    layers, same as it_lots/largest_cn_lots: one row per notice (its best
+    lot), and one row per real-world tender even if re-published under a
+    new notice_publication_id (same buyer, title, value)."""
+    # Explicit column list avoids Delta schema-mismatch errors when the table
+    # was rewritten and a stale column (e.g. 'status') lingers in the metadata.
+    df = query(f"""
+        SELECT
+            notice_publication_id, lot_id, lot_name, description,
+            notice_type, issue_date, buyer_name, buyer_org_ref,
+            buyer_country_code, buyer_legal_type,
+            lot_value_eur, pin_ev, value_eur,
+            submission_deadline_date, procurement_type,
+            cpv_code, cpv_name, cpv_division, cpv_relevance,
+            affinity_score, p_win, p_low_competition, expected_value,
+            days_since_pin, priority, product_line
+        FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY buyer_country_code, lot_name, lot_value_eur
+                    ORDER BY issue_date DESC
+                ) AS notice_rn
+            FROM (
+                SELECT *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY notice_publication_id
+                        ORDER BY priority DESC, pin_ev DESC NULLS LAST
+                    ) AS lot_rn
+                FROM {_S}.gold_pin_monitor
+            )
+            WHERE lot_rn = 1
+        )
+        WHERE notice_rn = 1
+        ORDER BY priority DESC, pin_ev DESC NULLS LAST
+        LIMIT {limit}
+    """)
+    # Normalise column names so the page module has stable names regardless
+    # of the exact schema the ML pipeline wrote.
+    renames = {"buyer_country_code": "country", "lot_name": "title"}
+    df = df.rename(columns=renames)
+    if "value_eur" in df.columns:
+        df["value_m"] = (df["value_eur"] / 1e6).round(2)
+    if "pin_ev" in df.columns:
+        df["pin_ev_m"] = (df["pin_ev"] / 1e6).round(2)
+    if "affinity_score" in df.columns:
+        df["affinity_score"] = df["affinity_score"].round(3)
+    if "cpv_relevance" in df.columns:
+        df["cpv_relevance"] = df["cpv_relevance"].round(3)
+    # Sort: priority first (if present), then by expected value descending
+    sort_cols = [c for c in ["priority", "pin_ev_m"] if c in df.columns]
+    if sort_cols:
+        df = df.sort_values(sort_cols, ascending=[False] * len(sort_cols))
+    return df
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def pipeline_status() -> pd.DataFrame:
+    """Last run record from the pipeline status table, or empty df if absent."""
+    try:
+        return query(f"""
+            SELECT task, status, message, run_time
+            FROM {_S}.pipeline_status
+            ORDER BY run_time DESC
+            LIMIT 5
+        """)
+    except Exception:
+        return pd.DataFrame()
 
 
 # ---------------------------------------------------------------------------

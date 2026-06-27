@@ -3,8 +3,10 @@ Procurement Intelligence Streamlit Dashboard
 Main app with 6 business case pages
 """
 
+import datetime
 import os
 import streamlit as st
+import pandas as pd
 import sys
 from pathlib import Path
 
@@ -28,9 +30,9 @@ from dashboard.page_modules import (
     buyer_intelligence,
     supplier_awards,
     trends_forecasts,
-    copilot
+    copilot,
 )
-from dashboard import ui
+from dashboard import db, ui
 
 # Page configuration
 st.set_page_config(
@@ -422,17 +424,17 @@ pages = {
     "📡 PIN Monitor": pin_monitor,
     "👥 Buyer Intelligence": buyer_intelligence,
     "🏆 Supplier & Awards": supplier_awards,
-    "📊 Trends & Forecasts": trends_forecasts,
+    "📊 Trends": trends_forecasts,
     "🤖 Procurement Copilot": copilot,
 }
 
 page_descriptions = {
     "📈 Executive Overview": "Market pulse, opportunity volume, and award patterns.",
     "🎯 Opportunity Radar": "Prioritize tenders by value, urgency, and fit.",
-    "📡 PIN Monitor": "Track upcoming buyer intentions before tenders open.",
+    "📡 PIN Monitor": "Early pipeline signals — build relationships before tenders open.",
     "👥 Buyer Intelligence": "Understand who is buying and how they procure.",
     "🏆 Supplier & Awards": "See who is winning and how awards are distributed.",
-    "📊 Trends & Forecasts": "Track changing demand and forecast future signals.",
+    "📊 Trends": "Track how notice volume and procurement activity are changing over time.",
     "🤖 Procurement Copilot": "Ask natural-language questions about the data.",
 }
 
@@ -466,6 +468,29 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ML pipeline status banner — shows if the last scoring run failed or is stale
+try:
+    status_df = db.pipeline_status()
+    if not status_df.empty:
+        last = status_df.iloc[0]
+        if str(last.get("status", "")) == "FAILED":
+            st.warning(
+                f"ML pipeline last run **FAILED** at {last.get('run_time', 'unknown')}. "
+                f"Opportunity scores and PIN data may be outdated. "
+                f"Error: {str(last.get('message', ''))[:200]}"
+            )
+        else:
+            run_time = pd.to_datetime(last.get("run_time"), errors="coerce")
+            if pd.notna(run_time):
+                hours_ago = (datetime.datetime.utcnow() - run_time.replace(tzinfo=None)).total_seconds() / 3600
+                if hours_ago > 48:
+                    st.warning(
+                        f"ML scores are **{hours_ago:.0f} hours old** — last successful run at "
+                        f"{last.get('run_time')}. The pipeline may not have run recently."
+                    )
+except Exception:
+    pass
 
 # Load and display selected page
 pages[selected_page].render()
